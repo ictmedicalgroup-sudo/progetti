@@ -68,20 +68,37 @@ body{background:var(--g50);color:var(--g900);}
      letter-spacing:.3px;border-bottom:2.5px solid transparent;transition:all .17s;text-transform:uppercase;}
 .tnb:hover{color:var(--g700);border-bottom-color:var(--g300);}
 .tnb.active{color:var(--verde);border-bottom-color:var(--verde);}
+/* Admin dropdown */
+.tnb-admin-wrap{position:relative;display:flex;align-items:stretch;}
+.tnb-admin-wrap .tnb{border-bottom:2.5px solid transparent;}
+.tnb-admin-wrap.active .tnb{color:var(--verde);border-bottom-color:var(--verde);}
+.tnb-admin-menu{
+  position:absolute;top:calc(100% + 1px);right:0;
+  background:#fff;border:1px solid var(--g200);border-radius:var(--r);
+  box-shadow:var(--sh-lg);min-width:150px;z-index:200;
+  display:none;flex-direction:column;padding:6px 0;
+}
+.tnb-admin-menu.open{display:flex;}
+.tnb-admin-item{
+  padding:9px 18px;font-size:12.5px;font-weight:600;color:var(--g500);
+  cursor:pointer;text-transform:uppercase;letter-spacing:.3px;transition:background .15s;
+}
+.tnb-admin-item:hover{background:var(--g50);color:var(--g700);}
+.tnb-admin-item.active{color:var(--verde);background:var(--accent-light);}
 
 /* ---- MAIN + DRAWER ---- */
 #app-body{display:flex;flex:1;overflow:hidden;position:relative;}
 #main{flex:1;padding:28px;overflow-y:auto;transition:margin-left .3s;}
-#drawer{position:fixed;left:0;top:52px;/* sotto topbar */height:calc(100vh - 92px);/* 52+40 topbar */
-        width:300px;background:#fff;border-right:1px solid var(--g200);box-shadow:var(--sh-md);
-        z-index:90;transform:translateX(-100%);transition:transform .3s;display:flex;flex-direction:column;}
+#drawer{position:fixed;right:0;top:52px;height:calc(100vh - 92px);
+        width:300px;background:#fff;border-left:1px solid var(--g200);box-shadow:var(--sh-md);
+        z-index:90;transform:translateX(100%);transition:transform .3s;display:flex;flex-direction:column;}
 #drawer.open{transform:translateX(0);}
-#drawer-toggle{position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:91;
+#drawer-toggle{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:91;
                background:var(--verde);color:#fff;border:none;cursor:pointer;
-               padding:10px 6px;border-radius:0 var(--rsm) var(--rsm) 0;box-shadow:var(--sh-md);
-               font-size:16px;writing-mode:vertical-rl;letter-spacing:1px;font-family:'Raleway',sans-serif;
-               font-weight:700;font-size:11px;transition:left .3s;}
-#drawer-toggle.open{left:300px;}
+               padding:10px 6px;border-radius:var(--rsm) 0 0 var(--rsm);box-shadow:var(--sh-md);
+               font-family:'Raleway',sans-serif;font-weight:700;font-size:11px;transition:right .3s;
+               writing-mode:vertical-rl;}
+#drawer-toggle.open{right:300px;}
 
 /* ---- DRAWER CONTENT ---- */
 #drawer-head{padding:16px;border-bottom:1px solid var(--g100);display:flex;align-items:center;justify-content:space-between;}
@@ -537,7 +554,8 @@ async function db(method, table, opts={}){
   };
   const res=await fetch(url,{method,headers,body:body?JSON.stringify(body):undefined});
   if(!res.ok){const e=await res.text();throw new Error(`${method} ${table}: ${e}`);}
-  return method==='DELETE'?null:res.json();
+  if(method==='DELETE'||method==='PATCH') return null;
+  return res.json();
 }
 
 async function supaLogin(email,pwd){
@@ -624,21 +642,43 @@ function logoHTML(small=false){
 // TOPBAR / NAV
 // ============================================================
 const NAV = [
-  { id:'board',      label:'📋 Board',      always:true },
-  { id:'categorie',  label:'🗂 Categorie',  always:true },
-  { id:'utenti',     label:'👥 Utenti',     admin:true  },
-  { id:'log',        label:'📜 Log',        admin:true  },
+  { id:'board',      label:'Board',      always:true },
+  { id:'categorie',  label:'Categorie',  always:true },
+  { id:'utenti',     label:'Utenti',     admin:true  },
+  { id:'log',        label:'Log',        admin:true  },
 ];
 
 function renderSidebar(){
   const isAdmin = S.user?.ruolo==='admin';
   $('tb-user').textContent = `${S.user.nome} ${S.user.cognome}`;
   $('tb-role').textContent = isAdmin ? 'Admin' : 'Utente';
-  $('tb-nav').innerHTML = NAV
-    .filter(n=>n.always||(n.admin&&isAdmin))
-    .map(n=>`<button class="tnb${S.page===n.id?' active':''}" onclick="goPage('${n.id}')">${n.label}</button>`)
-    .join('');
+  const adminPages = ['utenti','log','categorie'];
+  const isAdminPage = adminPages.includes(S.page);
+  const mainNav = NAV.filter(n=>n.always&&!n.admin);
+  let html = mainNav.map(n=>
+    `<button class="tnb${S.page===n.id?' active':''}" onclick="goPage('${n.id}')">${n.label}</button>`
+  ).join('');
+  if(isAdmin){
+    html += `<div class="tnb-admin-wrap${isAdminPage?' active':''}">
+      <button class="tnb${isAdminPage?' active':''}" onclick="toggleAdminMenu(event)">Admin ▾</button>
+      <div class="tnb-admin-menu" id="admin-menu">
+        ${NAV.filter(n=>n.admin).map(n=>
+          `<div class="tnb-admin-item${S.page===n.id?' active':''}" onclick="goPage('${n.id}')">${n.label}</div>`
+        ).join('')}
+      </div>
+    </div>`;
+  }
+  $('tb-nav').innerHTML = html;
 }
+
+function toggleAdminMenu(e){
+  e.stopPropagation();
+  const m=$('admin-menu'); if(!m) return;
+  m.classList.toggle('open');
+}
+document.addEventListener('click',()=>{
+  const m=$('admin-menu'); if(m) m.classList.remove('open');
+});
 
 function goPage(pg){
   S.page=pg; renderSidebar();
@@ -727,11 +767,11 @@ function renderBoard(pb){
   pb.innerHTML=`
   <div class="pg-head">
     <div>
-      <div class="pg-title">📋 Board Progetti</div>
+      <div class="pg-title">Board Progetti</div>
       <div class="pg-sub">Gestisci categorie, progetti e task</div>
     </div>
     <div style="display:flex;gap:10px;">
-      <button class="mbtn mbtn-secondary" onclick="goPage('categorie')">🗂 Categorie</button>
+      <button class="mbtn mbtn-secondary" onclick="goPage('categorie')">Categorie</button>
       <button class="mbtn mbtn-primary" onclick="openProgettoModal()">+ Progetto</button>
     </div>
   </div>
@@ -1078,10 +1118,11 @@ async function onDropTask(e, targetTaskId, projId, riga){
       updates.push(db('PATCH', T('task'), {flt:`id=eq.${t.id}`, body:{posizione:i}}));
     });
   }
-  await Promise.all(updates);
-  await writeLog('task_move','task',_drag.taskId,{riga:newRiga,posizione:insertIdx});
+  // Render immediato con stato locale già aggiornato
   _drag = null;
   renderBoard($('pb'));
+  // Persistenza in background
+  Promise.all(updates).then(()=>writeLog('task_move','task',null,{riga:newRiga,posizione:insertIdx}));
 }
 
 function onDragOverRow(e, rowEl, projId, riga){
@@ -1125,10 +1166,11 @@ async function onDropRow(e, projId, riga){
   const updates = rowTasks.map((t,i) =>
     db('PATCH', T('task'), {flt:`id=eq.${t.id}`, body:{posizione:i, riga:newRiga, progetto_id:projId}})
   );
-  await Promise.all(updates);
-  await writeLog('task_move','task',_drag.taskId,{riga:newRiga,posizione:newPos});
+  // Render immediato con stato locale già aggiornato
   _drag = null;
   renderBoard($('pb'));
+  // Persistenza in background
+  Promise.all(updates).then(()=>writeLog('task_move','task',null,{riga:newRiga,posizione:newPos}));
 }
 
 // ============================================================
@@ -1196,7 +1238,7 @@ function openTaskDetail(taskId){
 
   openM(`
   <div class="modal-head">
-    <div class="modal-title">🔧 ${esc(t.nome)}</div>
+    <div class="modal-title">${esc(t.nome)}</div>
     <button class="modal-close" onclick="closeM()">×</button>
   </div>
 
@@ -1305,7 +1347,7 @@ function openTaskModal(taskId, progettoId, riga){
 
   openM(`
   <div class="modal-head">
-    <div class="modal-title">${isNew?'➕ Nuovo Task':'✏️ Modifica Task'}</div>
+    <div class="modal-title">${isNew?'Nuovo Task':'Modifica Task'}</div>
     <button class="modal-close" onclick="closeM()">×</button>
   </div>
   <div class="mfield"><label>Nome task *</label>
@@ -1399,7 +1441,7 @@ function openProgettoModal(progettoId, preCatId, preSubId){
 
   openM(`
   <div class="modal-head">
-    <div class="modal-title">${isNew?'➕ Nuovo Progetto':'✏️ Modifica Progetto'}</div>
+    <div class="modal-title">${isNew?'Nuovo Progetto':'Modifica Progetto'}</div>
     <button class="modal-close" onclick="closeM()">×</button>
   </div>
   <div class="mfield"><label>Nome progetto *</label>
@@ -1504,7 +1546,7 @@ function openCatModal(catId){
   const c=catId?S.categorie.find(x=>x.id===catId):null;
   openM(`
   <div class="modal-head">
-    <div class="modal-title">${isNew?'➕ Nuova Categoria':'✏️ Modifica Categoria'}</div>
+    <div class="modal-title">${isNew?'Nuova Categoria':'Modifica Categoria'}</div>
     <button class="modal-close" onclick="closeM()">×</button>
   </div>
   <div class="mfield"><label>Nome *</label><input id="cm-nome" value="${c?esc(c.nome):''}"/></div>
@@ -1531,7 +1573,7 @@ async function saveCat(catId){
     const c=S.categorie.find(x=>x.id===catId); if(c) Object.assign(c,body);
     toast('Categoria aggiornata','ok');
   }
-  closeM(); renderBoard($('pb'));
+  closeM(); (S.page==='categorie' ? renderCategoriePage($('pb')) : renderBoard($('pb')));
 }
 
 async function deleteCat(catId){
@@ -1541,7 +1583,7 @@ async function deleteCat(catId){
   S.sottocategorie=S.sottocategorie.filter(s=>s.categoria_id!==catId);
   S.progetti.forEach(p=>{if(p.categoria_id===catId){p.categoria_id=null;p.sottocategoria_id=null;}});
   S.categorie=S.categorie.filter(c=>c.id!==catId);
-  closeM(); renderBoard($('pb')); toast('Categoria eliminata','ok');
+  closeM(); (S.page==='categorie' ? renderCategoriePage($('pb')) : renderBoard($('pb'))); toast('Categoria eliminata','ok');
 }
 
 function openSubcatModal(catId, subId){
@@ -1549,7 +1591,7 @@ function openSubcatModal(catId, subId){
   const s=subId?S.sottocategorie.find(x=>x.id===subId):null;
   openM(`
   <div class="modal-head">
-    <div class="modal-title">${isNew?'➕ Nuova Sottocategoria':'✏️ Modifica Sottocategoria'}</div>
+    <div class="modal-title">${isNew?'Nuova Sottocategoria':'Modifica Sottocategoria'}</div>
     <button class="modal-close" onclick="closeM()">×</button>
   </div>
   <div class="mfield"><label>Nome *</label><input id="scm-nome" value="${s?esc(s.nome):''}"/></div>
@@ -1572,7 +1614,7 @@ async function saveSubcat(catId, subId){
     const s=S.sottocategorie.find(x=>x.id===subId); if(s) s.nome=nome;
     toast('Sottocategoria aggiornata','ok');
   }
-  closeM(); renderBoard($('pb'));
+  closeM(); (S.page==='categorie' ? renderCategoriePage($('pb')) : renderBoard($('pb')));
 }
 
 async function deleteSubcat(subId){
@@ -1581,7 +1623,7 @@ async function deleteSubcat(subId){
   await db('DELETE',T('sottocategorie'),{flt:`id=eq.${subId}`});
   S.progetti.forEach(p=>{if(p.sottocategoria_id===subId) p.sottocategoria_id=null;});
   S.sottocategorie=S.sottocategorie.filter(s=>s.id!==subId);
-  closeM(); renderBoard($('pb')); toast('Sottocategoria eliminata','ok');
+  closeM(); (S.page==='categorie' ? renderCategoriePage($('pb')) : renderBoard($('pb'))); toast('Sottocategoria eliminata','ok');
 }
 
 // ============================================================
@@ -1610,7 +1652,7 @@ function openPermessiModal(progettoId){
 
   openM(`
   <div class="modal-head">
-    <div class="modal-title">🔒 Permessi — ${esc(proj.nome)}</div>
+    <div class="modal-title">Permessi — ${esc(proj.nome)}</div>
     <button class="modal-close" onclick="closeM()">×</button>
   </div>
   <div style="margin-bottom:16px;">
@@ -1676,6 +1718,7 @@ function initDrawer(){
     S.drawerOpen=!S.drawerOpen;
     $('drawer').classList.toggle('open',S.drawerOpen);
     $('drawer-toggle').classList.toggle('open',S.drawerOpen);
+    $('main').style.marginRight = S.drawerOpen ? '300px' : '0';
   });
 
   $('drawer-add-btn').addEventListener('click', addTaskVeloce);
@@ -1762,7 +1805,7 @@ function renderCategoriePage(pb){
   pb.innerHTML=`
   <div class="pg-head">
     <div>
-      <div class="pg-title">🗂 Categorie e Sottocategorie</div>
+      <div class="pg-title">Categorie e Sottocategorie</div>
       <div class="pg-sub">Gestisci la struttura organizzativa dei tuoi progetti</div>
     </div>
     <button class="mbtn mbtn-primary" onclick="openCatModal()">+ Nuova categoria</button>
@@ -1851,7 +1894,7 @@ function renderUtenti(pb){
   if(S.user.ruolo!=='admin'){pb.innerHTML='<div class="empty-state"><div class="es-icon">🔒</div><p>Accesso riservato agli amministratori</p></div>';return;}
   pb.innerHTML=`
   <div class="pg-head">
-    <div><div class="pg-title">👥 Gestione Utenti</div></div>
+    <div><div class="pg-title">Gestione Utenti</div></div>
     <button class="mbtn mbtn-primary" onclick="openUtenteModal()">+ Nuovo utente</button>
   </div>
   <div style="background:#fff;border-radius:var(--r);border:1px solid var(--g200);box-shadow:var(--sh-sm);overflow:hidden;">
@@ -1881,7 +1924,7 @@ function openUtenteModal(userId){
 
   openM(`
   <div class="modal-head">
-    <div class="modal-title">${isNew?'➕ Nuovo Utente':'✏️ Modifica Utente'}</div>
+    <div class="modal-title">${isNew?'Nuovo Utente':'Modifica Utente'}</div>
     <button class="modal-close" onclick="closeM()">×</button>
   </div>
   <div class="mfield-row">
@@ -2018,7 +2061,7 @@ async function deleteUtenteProfile(userId){
 // ============================================================
 async function renderLogPage(pb){
   if(S.user.ruolo!=='admin'){pb.innerHTML='<div class="empty-state"><div class="es-icon">🔒</div><p>Accesso riservato agli amministratori</p></div>';return;}
-  pb.innerHTML=`<div class="pg-head"><div class="pg-title">📜 Log modifiche</div></div><div id="log-wrap"><div style="padding:20px;text-align:center;"><span class="spn" style="border-color:var(--g200);border-top-color:var(--verde);"></span></div></div>`;
+  pb.innerHTML=`<div class="pg-head"><div class="pg-title">Log modifiche</div></div><div id="log-wrap"><div style="padding:20px;text-align:center;"><span class="spn" style="border-color:var(--g200);border-top-color:var(--verde);"></span></div></div>`;
   await loadLog();
   const wrap=$('log-wrap');
   if(!S.log||!S.log.length){wrap.innerHTML='<div class="empty-state"><div class="es-icon">📭</div><p>Nessun log disponibile</p></div>';return;}
