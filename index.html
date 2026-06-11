@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Medical Group — Gestione Progetti</title>
+<title>Progetti</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700;800&display=swap"/>
@@ -706,9 +706,10 @@ function renderBoard(pb){
     progetti=progetti.filter(p=>p.sottocategoria_id===f.sottocategoria_id);
   }
 
-  // Categorie usate dai progetti visibili + "senza categoria"
+  // Tutte le categorie proprie + quelle usate da progetti condivisi visibili
   const catUsed = new Set(progetti.map(p=>p.categoria_id).filter(Boolean));
-  const cats = S.categorie.filter(c=>catUsed.has(c.id));
+  const myCatIds = new Set(S.categorie.filter(c=>c.utente_id===S.user.id).map(c=>c.id));
+  const cats = S.categorie.filter(c=>myCatIds.has(c.id)||catUsed.has(c.id));
   const progettiSenzaCat = progetti.filter(p=>!p.categoria_id);
 
   // Categorie per il filtro (tutte)
