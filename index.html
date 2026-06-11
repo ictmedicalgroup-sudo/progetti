@@ -194,7 +194,7 @@ body{background:var(--g50);color:var(--g900);}
 .acc-row-sub:hover .col-label{background:var(--g50);}
 .sub-label{
   display:flex;align-items:center;gap:8px;
-  padding:8px 16px 8px 28px;font-size:12px;font-weight:600;color:var(--g500);
+  padding:8px 16px 8px 34px;font-size:12px;font-weight:600;color:var(--g500);
   letter-spacing:.2px;
 }
 
@@ -205,11 +205,11 @@ body{background:var(--g50);color:var(--g900);}
 .acc-row-proj:hover .col-label{background:var(--g50);}
 .proj-label{
   display:flex;flex-direction:column;align-items:flex-start;
-  padding:7px 12px 7px 48px;font-size:13px;font-weight:600;color:var(--g900);
+  padding:7px 12px 7px 34px;font-size:13px;font-weight:600;color:var(--g900);
   width:100%;cursor:pointer;
 }
 .proj-label-top{display:flex;align-items:center;gap:6px;width:100%;}
-.proj-label-bottom{display:flex;align-items:center;gap:5px;margin-top:4px;padding-left:14px;}
+.proj-label-bottom{display:flex;align-items:center;gap:5px;margin-top:4px;padding-left:0px;}
 .proj-meta{font-size:10px;color:var(--g500);white-space:nowrap;}
 .proj-owner-prefix{font-size:10px;color:var(--g500);font-style:italic;margin-bottom:2px;}
 
@@ -906,7 +906,7 @@ function buildProgettoRow(proj, indent){
   const isOwn = proj.utente_id===S.user.id;
   const canWrite = canWriteProgetto(proj);
   const ownerPrefix = !isOwn ? `<div class="proj-owner-prefix">${esc(owner?.nome||'')} ${esc(owner?.cognome||'')}</div>` : '';
-  const padLeft = indent===3 ? '64px' : '48px';
+  const padLeft = '0px'; // padding gestito da CSS .proj-label
 
   let taskHtml = '';
   if(isExpProj){
@@ -921,7 +921,6 @@ function buildProgettoRow(proj, indent){
     <td class="col-label">
       <div class="proj-label" style="padding-left:${padLeft}">
         <div class="proj-label-top">
-          <span style="width:8px;height:8px;border-radius:50%;background:${sc};flex-shrink:0;display:inline-block"></span>
           <div style="flex:1;min-width:0;">
             ${ownerPrefix}
             <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;font-weight:600;" title="${esc(proj.nome)}">${esc(proj.nome)}</div>
