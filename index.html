@@ -195,12 +195,14 @@ body{background:var(--g50);color:var(--g900);}
 
 /* Cella task (orizzontale) */
 .tasks-cell{
-  padding:8px 12px;vertical-align:middle;
+  padding:6px 12px;vertical-align:top;
   border-bottom:1px solid var(--g100);
-  white-space:nowrap;
+}
+.tasks-chains{
+  display:flex;flex-direction:column;gap:4px;padding:4px 0;
 }
 .tasks-row{
-  display:flex;align-items:center;gap:8px;min-height:44px;
+  display:flex;align-items:center;gap:8px;min-height:36px;flex-wrap:nowrap;
 }
 /* Task card */
 .task-card{
@@ -217,6 +219,13 @@ body{background:var(--g50);color:var(--g900);}
   content:'';position:absolute;left:-4px;top:0;bottom:0;width:3px;
   background:var(--verde);border-radius:2px;
 }
+.task-card.drag-over-right::after{
+  content:'';position:absolute;right:-4px;top:0;bottom:0;width:3px;
+  background:var(--verde);border-radius:2px;
+}
+.tasks-row.drag-over-row{
+  background:var(--accent-light);border-radius:var(--rsm);outline:2px dashed var(--verde);
+}
 /* Colori per stato */
 .task-card.s-aperto{background:#fff;border-color:var(--g200);color:var(--g700);}
 .task-card.s-in_corso{background:var(--yellow-light);border-color:var(--yellow);color:#8a5500;}
@@ -226,6 +235,10 @@ body{background:var(--g50);color:var(--g900);}
 .task-dep-icon{font-size:10px;opacity:.7;}  /* lucchetto se bloccato da dipendenze */
 /* Freccia dipendenza tra task */
 .task-dep-arrow{color:var(--g300);font-size:14px;flex-shrink:0;}
+
+/* Riga nuova task parallela */
+.tasks-row-new{opacity:.55;transition:opacity .2s;}
+.tasks-row-new:hover{opacity:1;}
 
 /* Add task button */
 .add-task-btn{
@@ -295,13 +308,7 @@ body{background:var(--g50);color:var(--g900);}
 
 /* Task detail modal extra */
 .task-detail-stato{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;}
-.task-dep-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
-.dep-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;
-           background:var(--g100);font-size:12px;color:var(--g700);border:1px solid var(--g200);}
-.dep-badge .dep-remove{cursor:pointer;color:var(--g300);font-size:14px;}
-.dep-badge .dep-remove:hover{color:var(--red);}
-.dep-select-wrap{display:flex;gap:8px;margin-top:8px;}
-.dep-select-wrap select{flex:1;}
+/* dep styles removed — dependencies managed via task row position */
 
 /* ---- PAGINA UTENTI ---- */
 .utenti-table{width:100%;border-collapse:collapse;margin-top:16px;}
@@ -575,7 +582,7 @@ async function loadAll(){
     db('GET', T('sottocategorie'), {ord:'ordine.asc,nome.asc'}),
     db('GET', T('progetti'),       {ord:'ordine.asc,nome.asc'}),
     db('GET', T('permessi'),       {}),
-    db('GET', T('task'),           {ord:'posizione.asc'}),
+    db('GET', T('task'),           {ord:'riga.asc,posizione.asc'}),
     db('GET', T('task_dipendenze'),{}),
     db('GET', T('task_veloci'),    {flt:`data_riferimento=eq.${today()}`,ord:'ordine.asc'}),
   ]);
@@ -617,9 +624,10 @@ function logoHTML(small=false){
 // TOPBAR / NAV
 // ============================================================
 const NAV = [
-  { id:'board',   label:'📋 Board',   always:true },
-  { id:'utenti',  label:'👥 Utenti',  admin:true  },
-  { id:'log',     label:'📜 Log',     admin:true  },
+  { id:'board',      label:'📋 Board',      always:true },
+  { id:'categorie',  label:'🗂 Categorie',  always:true },
+  { id:'utenti',     label:'👥 Utenti',     admin:true  },
+  { id:'log',        label:'📜 Log',        admin:true  },
 ];
 
 function renderSidebar(){
@@ -635,7 +643,8 @@ function renderSidebar(){
 function goPage(pg){
   S.page=pg; renderSidebar();
   const pb=$('pb');
-  if(pg==='board')   renderBoard(pb);
+  if(pg==='board')       renderBoard(pb);
+  else if(pg==='categorie') renderCategoriePage(pb);
   else if(pg==='utenti') renderUtenti(pb);
   else if(pg==='log')    renderLogPage(pb);
 }
@@ -722,7 +731,7 @@ function renderBoard(pb){
       <div class="pg-sub">Gestisci categorie, progetti e task</div>
     </div>
     <div style="display:flex;gap:10px;">
-      <button class="mbtn mbtn-secondary" onclick="openCatModal()">+ Categoria</button>
+      <button class="mbtn mbtn-secondary" onclick="goPage('categorie')">🗂 Categorie</button>
       <button class="mbtn mbtn-primary" onclick="openProgettoModal()">+ Progetto</button>
     </div>
   </div>
@@ -802,6 +811,7 @@ function renderBoardRows(cats, progettiSenzaCat, allProjFiltered){
             <div class="sub-label">
               <span style="color:var(--g300)">└</span>
               <span style="flex:1">${esc(sub.nome)}</span>
+              <button class="add-task-btn" style="font-size:13px;width:24px;height:24px;" title="Nuovo progetto in questa sottocategoria" onclick="event.stopPropagation();openProgettoModal(null,'${cat.id}','${sub.id}')">+</button>
               <span class="acc-chevron ${isExpSub?'open':''}">▶</span>
             </div>
           </td>
@@ -889,32 +899,72 @@ function buildProgettoRow(proj, indent){
 }
 
 function buildTasksRow(tasks, proj, canWrite){
-  if(tasks.length===0 && !canWrite){
-    return `<div class="tasks-row"><span style="font-size:12px;color:var(--g300);">Nessun task</span></div>`;
+  // Raggruppa task per riga (campo 'riga', default 0)
+  const righe = {};
+  for(const t of tasks){
+    const r = t.riga ?? 0;
+    if(!righe[r]) righe[r] = [];
+    righe[r].push(t);
   }
-  let html = '<div class="tasks-row">';
-  for(let i=0;i<tasks.length;i++){
-    const t=tasks[i];
-    const isDep = S.dipendenze.some(d=>d.task_id===t.id); // ha dipendenze
-    const isBlocked = isDep && S.dipendenze.filter(d=>d.task_id===t.id).some(d=>{
-      const parent=S.task.find(tt=>tt.id===d.dipende_da_id);
-      return parent && parent.stato!=='completato';
-    });
-    if(i>0) html+=`<span class="task-dep-arrow">→</span>`;
-    html+=`<div class="task-card s-${t.stato}" 
-      data-task-id="${t.id}"
-      draggable="true"
-      ondragstart="onDragStartTask(event,'${t.id}')"
-      ondragend="onDragEndTask(event)"
-      ondragover="onDragOverTask(event,'${t.id}')"
-      ondrop="onDropTask(event,'${t.id}','${proj.id}')"
-      onclick="openTaskDetail('${t.id}')"
-      oncontextmenu="showCtxMenu(event,'${t.id}')">
-      ${isBlocked?'🔒 ':''}${esc(t.nome)}
+  const righeKeys = Object.keys(righe).map(Number).sort((a,b)=>a-b);
+  if(righeKeys.length === 0 && !canWrite){
+    return `<div class="tasks-chains"><div class="tasks-row"><span style="font-size:12px;color:var(--g300);">Nessun task</span></div></div>`;
+  }
+
+  let html = '<div class="tasks-chains">';
+  for(const rk of righeKeys){
+    const rowTasks = righe[rk].sort((a,b)=>a.posizione-b.posizione);
+    html += `<div class="tasks-row" 
+      data-proj-id="${proj.id}" data-riga="${rk}"
+      ondragover="onDragOverRow(event,this,'${proj.id}',${rk})"
+      ondrop="onDropRow(event,'${proj.id}',${rk})"
+      ondragleave="onDragLeaveRow(this)">`;
+    for(let i=0;i<rowTasks.length;i++){
+      const t=rowTasks[i];
+      if(i>0) html+=`<span class="task-dep-arrow">→</span>`;
+      html+=`<div class="task-card s-${t.stato}" 
+        data-task-id="${t.id}"
+        draggable="true"
+        ondragstart="onDragStartTask(event,'${t.id}','${proj.id}',${rk})"
+        ondragend="onDragEndTask(event)"
+        ondragover="onDragOverTask(event,this,'${t.id}')"
+        ondrop="onDropTask(event,'${t.id}','${proj.id}',${rk})"
+        onclick="event.stopPropagation();openTaskDetail('${t.id}')"
+        oncontextmenu="showCtxMenu(event,'${t.id}')">
+        ${esc(t.nome)}
+      </div>`;
+    }
+    html += '</div>';
+  }
+  // Riga vuota per aggiunta task nuovi / drop su nuova riga
+  if(canWrite){
+    const nextRiga = righeKeys.length > 0 ? Math.max(...righeKeys)+1 : 0;
+    html += `<div class="tasks-row tasks-row-new"
+      data-proj-id="${proj.id}" data-riga="${nextRiga}"
+      ondragover="onDragOverRow(event,this,'${proj.id}',${nextRiga})"
+      ondrop="onDropRow(event,'${proj.id}',${nextRiga})"
+      ondragleave="onDragLeaveRow(this)">
+      <button class="add-task-btn" onclick="openTaskModal(null,'${proj.id}',${nextRiga})" title="Aggiungi task in nuova riga">+</button>
+      <span style="font-size:11px;color:var(--g300);margin-left:4px;">Nuova riga parallela</span>
     </div>`;
+    // Bottone + per aggiungere task all'ultima riga esistente
+    if(righeKeys.length > 0){
+      const lastRiga = Math.max(...righeKeys);
+      // Inietta + alla fine dell'ultima riga (approccio: aggiungi dopo il suo contenuto)
+      const marker = `data-riga="${lastRiga}">`;
+      // Troviamo l'ultima occorrenza del marker nell'html già costruito
+      const lastIdx = html.lastIndexOf(marker);
+      if(lastIdx !== -1){
+        // trova la chiusura </div> della riga
+        const closeDiv = html.indexOf('</div>', lastIdx);
+        if(closeDiv !== -1){
+          const addBtn = `<button class="add-task-btn" onclick="openTaskModal(null,'${proj.id}',${lastRiga})" title="Aggiungi task in questa riga">+</button>`;
+          html = html.slice(0, closeDiv) + addBtn + html.slice(closeDiv);
+        }
+      }
+    }
   }
-  if(canWrite) html+=`<button class="add-task-btn" onclick="openTaskModal(null,'${proj.id}')" title="Aggiungi task">+</button>`;
-  html+='</div>';
+  html += '</div>';
   return html;
 }
 
@@ -941,71 +991,144 @@ function resetFiltri(){ S.boardFilter={testo:'',categoria_id:'',sottocategoria_i
 // ============================================================
 // DRAG & DROP TASK
 // ============================================================
-let _dragTaskId = null;
+let _drag = null; // { taskId, projId, riga, posizione }
 
-function initDragDrop(){
-  // già gestito con attributi HTML
-}
-
-function onDragStartTask(e, taskId){
-  _dragTaskId=taskId;
-  e.dataTransfer.effectAllowed='move';
+function onDragStartTask(e, taskId, projId, riga){
+  _drag = { taskId, projId: String(projId), riga: Number(riga) };
+  e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('taskId', taskId);
-  setTimeout(()=>e.target.classList.add('dragging'),0);
+  setTimeout(()=>{
+    const el = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+    if(el) el.classList.add('dragging');
+  }, 0);
 }
+
 function onDragEndTask(e){
-  e.target.classList.remove('dragging');
-  document.querySelectorAll('.task-card').forEach(c=>c.classList.remove('drag-over-left'));
-  // rimuovi evidenziazione drop zone drawer
+  document.querySelectorAll('.task-card.dragging').forEach(c=>c.classList.remove('dragging'));
+  document.querySelectorAll('.task-card.drag-over-left,.task-card.drag-over-right').forEach(c=>{
+    c.classList.remove('drag-over-left','drag-over-right');
+  });
+  document.querySelectorAll('.tasks-row.drag-over-row').forEach(r=>r.classList.remove('drag-over-row'));
   $('drawer-drop-zone').classList.remove('drag-over');
 }
-function onDragOverTask(e, targetTaskId){
-  if(!_dragTaskId || _dragTaskId===targetTaskId) return;
-  e.preventDefault();
-  document.querySelectorAll('.task-card').forEach(c=>c.classList.remove('drag-over-left'));
-  e.currentTarget.classList.add('drag-over-left');
+
+function onDragOverTask(e, el, targetTaskId){
+  if(!_drag || _drag.taskId === targetTaskId) return;
+  e.preventDefault(); e.stopPropagation();
+  document.querySelectorAll('.task-card.drag-over-left,.task-card.drag-over-right').forEach(c=>{
+    c.classList.remove('drag-over-left','drag-over-right');
+  });
+  const rect = el.getBoundingClientRect();
+  const half = rect.left + rect.width / 2;
+  el.classList.add(e.clientX < half ? 'drag-over-left' : 'drag-over-right');
 }
-function onDragOverCell(e, projId){
-  e.preventDefault();
-}
-async function onDropTask(e, targetTaskId, projId){
-  e.preventDefault();
-  if(!_dragTaskId || _dragTaskId===targetTaskId) return;
-  document.querySelectorAll('.task-card').forEach(c=>c.classList.remove('drag-over-left'));
 
-  const tasks = S.task.filter(t=>t.progetto_id===projId).sort((a,b)=>a.posizione-b.posizione);
-  const fromIdx = tasks.findIndex(t=>t.id===_dragTaskId);
-  const toIdx   = tasks.findIndex(t=>t.id===targetTaskId);
-  if(fromIdx<0||toIdx<0) return;
+async function onDropTask(e, targetTaskId, projId, riga){
+  e.preventDefault(); e.stopPropagation();
+  if(!_drag || _drag.taskId === targetTaskId) return;
+  document.querySelectorAll('.task-card.drag-over-left,.task-card.drag-over-right').forEach(c=>{
+    c.classList.remove('drag-over-left','drag-over-right');
+  });
 
-  // Riordina localmente
-  const moved = tasks.splice(fromIdx,1)[0];
-  tasks.splice(toIdx,0,moved);
+  const targetCard = document.querySelector(`.task-card[data-task-id="${targetTaskId}"]`);
+  const rect = targetCard ? targetCard.getBoundingClientRect() : null;
+  const insertAfter = rect ? (e.clientX > rect.left + rect.width / 2) : false;
 
-  // Aggiorna posizioni su DB
-  await Promise.all(tasks.map((t,i)=>
-    db('PATCH',T('task'),{flt:`id=eq.${t.id}`,body:{posizione:i}})
-  ));
+  // Ottieni task della riga target ordinati
+  let rowTasks = S.task
+    .filter(t => t.progetto_id === projId && (t.riga ?? 0) === Number(riga))
+    .sort((a,b) => a.posizione - b.posizione);
+
+  // Rimuovi il task draggato dalla sua riga originale
+  const draggedTask = S.task.find(t => t.id === _drag.taskId);
+  if(!draggedTask) return;
+
+  const proj = S.progetti.find(p=>p.id===projId);
+  if(!proj || !canWriteProgetto(proj)) return;
+
+  // Cambia riga se necessario
+  const oldRiga = draggedTask.riga ?? 0;
+  const newRiga = Number(riga);
+
+  // Rimuovi dalla vecchia riga e riordina
+  const oldRowTasks = S.task
+    .filter(t => t.progetto_id === draggedTask.progetto_id && (t.riga ?? 0) === oldRiga && t.id !== _drag.taskId)
+    .sort((a,b) => a.posizione - b.posizione);
+
+  // Inserisci nella nuova riga nella posizione corretta
+  rowTasks = rowTasks.filter(t => t.id !== _drag.taskId);
+  const targetIdx = rowTasks.findIndex(t => t.id === targetTaskId);
+  const insertIdx = insertAfter ? targetIdx + 1 : targetIdx;
+  rowTasks.splice(insertIdx, 0, draggedTask);
+
   // Aggiorna stato locale
-  tasks.forEach((t,i)=>{ const tt=S.task.find(x=>x.id===t.id); if(tt) tt.posizione=i; });
+  draggedTask.progetto_id = projId;
+  draggedTask.riga = newRiga;
+
+  // Aggiorna posizioni in DB
+  const updates = [];
+  rowTasks.forEach((t,i) => {
+    t.posizione = i;
+    updates.push(db('PATCH', T('task'), {flt:`id=eq.${t.id}`, body:{posizione:i, riga:newRiga, progetto_id:projId}}));
+  });
+  // Riordina vecchia riga se diversa
+  if(oldRiga !== newRiga || draggedTask.progetto_id !== projId){
+    oldRowTasks.forEach((t,i) => {
+      t.posizione = i;
+      updates.push(db('PATCH', T('task'), {flt:`id=eq.${t.id}`, body:{posizione:i}}));
+    });
+  }
+  await Promise.all(updates);
+  await writeLog('task_move','task',_drag.taskId,{riga:newRiga,posizione:insertIdx});
+  _drag = null;
   renderBoard($('pb'));
-  _dragTaskId=null;
 }
-async function onDropCell(e, projId){
+
+function onDragOverRow(e, rowEl, projId, riga){
   e.preventDefault();
-  // Drop su cella vuota → sposta in fondo
-  if(!_dragTaskId) return;
-  const task=S.task.find(t=>t.id===_dragTaskId);
-  if(!task||task.progetto_id===projId) return;
-  // Sposta task in un altro progetto (se canWrite su entrambi)
-  const targetProj = S.progetti.find(p=>p.id===projId);
-  if(!targetProj||!canWriteProgetto(targetProj)) return;
-  const maxPos = Math.max(-1,...S.task.filter(t=>t.progetto_id===projId).map(t=>t.posizione));
-  await db('PATCH',T('task'),{flt:`id=eq.${_dragTaskId}`,body:{progetto_id:projId,posizione:maxPos+1}});
-  task.progetto_id=projId; task.posizione=maxPos+1;
-  await writeLog('task_move','task',_dragTaskId,{da_progetto:task.progetto_id,a_progetto:projId});
-  toast('Task spostato'); renderBoard($('pb'));
-  _dragTaskId=null;
+  document.querySelectorAll('.tasks-row.drag-over-row').forEach(r=>{
+    if(r !== rowEl) r.classList.remove('drag-over-row');
+  });
+  rowEl.classList.add('drag-over-row');
+}
+
+function onDragLeaveRow(rowEl){
+  // Piccolo delay per evitare flicker quando si va su un task figlio
+  setTimeout(()=>{
+    if(!rowEl.matches(':hover')) rowEl.classList.remove('drag-over-row');
+  }, 80);
+}
+
+async function onDropRow(e, projId, riga){
+  e.preventDefault();
+  document.querySelectorAll('.tasks-row.drag-over-row').forEach(r=>r.classList.remove('drag-over-row'));
+  if(!_drag) return;
+  const draggedTask = S.task.find(t => t.id === _drag.taskId);
+  if(!draggedTask) return;
+  const proj = S.progetti.find(p=>p.id===projId);
+  if(!proj || !canWriteProgetto(proj)) return;
+
+  const newRiga = Number(riga);
+  const oldRiga = draggedTask.riga ?? 0;
+
+  // Sposta in fondo alla riga target
+  const rowTasks = S.task
+    .filter(t => t.progetto_id === projId && (t.riga ?? 0) === newRiga && t.id !== _drag.taskId)
+    .sort((a,b) => a.posizione - b.posizione);
+
+  const newPos = rowTasks.length;
+  draggedTask.riga = newRiga;
+  draggedTask.posizione = newPos;
+  draggedTask.progetto_id = projId;
+  rowTasks.push(draggedTask);
+
+  const updates = rowTasks.map((t,i) =>
+    db('PATCH', T('task'), {flt:`id=eq.${t.id}`, body:{posizione:i, riga:newRiga, progetto_id:projId}})
+  );
+  await Promise.all(updates);
+  await writeLog('task_move','task',_drag.taskId,{riga:newRiga,posizione:newPos});
+  _drag = null;
+  renderBoard($('pb'));
 }
 
 // ============================================================
@@ -1067,22 +1190,9 @@ function openTaskDetail(taskId){
   if(!t) return;
   const proj=S.progetti.find(p=>p.id===t.progetto_id);
   const canWrite=proj&&canWriteProgetto(proj);
-  const deps=S.dipendenze.filter(d=>d.task_id===taskId);
   const statiOpts=['aperto','in_corso','completato','bloccato','annullato'];
   const priOpts=['bassa','normale','alta','critica'];
   const assegnatoProfili=S.profili;
-
-  const depBadges=deps.map(d=>{
-    const pt=S.task.find(x=>x.id===d.dipende_da_id);
-    return pt?`<span class="dep-badge">${esc(pt.nome)}<span class="dep-remove" onclick="removeDep('${taskId}','${d.dipende_da_id}')">×</span></span>`:'';
-  }).join('');
-
-  // Task disponibili per nuove dipendenze (stesso progetto, non già dipendenza, non se stesso)
-  const availDeps=S.task.filter(x=>
-    x.progetto_id===t.progetto_id &&
-    x.id!==taskId &&
-    !deps.find(d=>d.dipende_da_id===x.id)
-  );
 
   openM(`
   <div class="modal-head">
@@ -1135,17 +1245,10 @@ function openTaskDetail(taskId){
     ${t.descrizione?`<div style="margin-top:8px;color:var(--g500);">${esc(t.descrizione)}</div>`:''}
   </div>`}
 
-  <div class="mfield">
-    <label>🔗 Dipende da (task che devono completarsi prima)</label>
-    <div class="task-dep-list">${depBadges||'<span style="font-size:12px;color:var(--g300)">Nessuna dipendenza</span>'}</div>
-    ${canWrite&&availDeps.length?`
-    <div class="dep-select-wrap">
-      <select id="dep-sel" class="filtro-sel" style="flex:1">
-        <option value="">— Aggiungi dipendenza —</option>
-        ${availDeps.map(x=>`<option value="${x.id}">${esc(x.nome)}</option>`).join('')}
-      </select>
-      <button class="mbtn mbtn-secondary" onclick="addDep('${taskId}')">+ Aggiungi</button>
-    </div>`:''}
+  <div class="mfield" style="background:var(--g50);border-radius:var(--rsm);padding:10px 14px;">
+    <div style="font-size:11px;font-weight:700;color:var(--g500);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">📋 Progetto</div>
+    <div style="font-size:13px;color:var(--g700);">${esc(proj?.nome||'—')}</div>
+    <div style="font-size:11px;color:var(--g300);margin-top:4px;">Le dipendenze si gestiscono trascinando i task nell'ordine desiderato sulla board</div>
   </div>
 
   <div class="modal-actions">
@@ -1194,7 +1297,7 @@ async function removeDep(taskId,depId){
 }
 
 // --- MODAL NUOVO/MODIFICA TASK ---
-function openTaskModal(taskId, progettoId){
+function openTaskModal(taskId, progettoId, riga){
   const isNew=!taskId;
   const t=taskId?S.task.find(x=>x.id===taskId):null;
   const statiOpts=['aperto','in_corso','completato','bloccato','annullato'];
@@ -1247,10 +1350,11 @@ function openTaskModal(taskId, progettoId){
   </div>`);
 }
 
-async function saveTask(taskId, progettoId){
+async function saveTask(taskId, progettoId, riga){
   const isNew=!taskId;
   const nome=$('tm-nome').value.trim();
   if(!nome){toast('Nome obbligatorio','err');return;}
+  const rigaNum = Number(riga ?? 0);
   const body={
     progetto_id:  progettoId,
     nome,
@@ -1262,9 +1366,11 @@ async function saveTask(taskId, progettoId){
     stima_ore:    $('tm-stima').value?parseFloat($('tm-stima').value):null,
     ore_effettive:$('tm-ore').value?parseFloat($('tm-ore').value):null,
     assegnato_a:  $('tm-assegnato').value||null,
+    riga:         rigaNum,
   };
   if(isNew){
-    const maxPos=Math.max(-1,...S.task.filter(t=>t.progetto_id===progettoId).map(t=>t.posizione));
+    const rowTasks = S.task.filter(t=>t.progetto_id===progettoId&&(t.riga??0)===rigaNum);
+    const maxPos = Math.max(-1,...rowTasks.map(t=>t.posizione));
     body.posizione=maxPos+1;
     const [created]=await db('POST',T('task'),{body});
     S.task.push(created);
@@ -1282,9 +1388,11 @@ async function saveTask(taskId, progettoId){
 // ============================================================
 // MODALI PROGETTO
 // ============================================================
-function openProgettoModal(progettoId){
+function openProgettoModal(progettoId, preCatId, preSubId){
   const isNew=!progettoId;
   const p=progettoId?S.progetti.find(x=>x.id===progettoId):null;
+  const defaultCatId = preCatId || p?.categoria_id || '';
+  const defaultSubId = preSubId || p?.sottocategoria_id || '';
   const statiOpts=['aperto','in_corso','completato','sospeso','annullato'];
   const priOpts=['bassa','normale','alta','critica'];
   const myCats=S.categorie.filter(c=>c.utente_id===S.user.id);
@@ -1304,13 +1412,13 @@ function openProgettoModal(progettoId){
     <div class="mfield"><label>Categoria</label>
       <select id="pm-cat" onchange="onPmCatChange(this.value)">
         <option value="">— Nessuna —</option>
-        ${myCats.map(c=>`<option value="${c.id}"${p?.categoria_id===c.id?' selected':''}>${esc(c.nome)}</option>`).join('')}
+        ${myCats.map(c=>`<option value="${c.id}"${(defaultCatId===c.id)?' selected':''}>${esc(c.nome)}</option>`).join('')}
       </select>
     </div>
     <div class="mfield"><label>Sottocategoria</label>
       <select id="pm-sub">
         <option value="">— Nessuna —</option>
-        ${p?.categoria_id?S.sottocategorie.filter(s=>s.categoria_id===p.categoria_id).map(s=>`<option value="${s.id}"${p?.sottocategoria_id===s.id?' selected':''}>${esc(s.nome)}</option>`).join(''):''}
+        ${defaultCatId?S.sottocategorie.filter(s=>s.categoria_id===defaultCatId).map(s=>`<option value="${s.id}"${(defaultSubId===s.id)?' selected':''}>${esc(s.nome)}</option>`).join(''):''}
       </select>
     </div>
   </div>
@@ -1645,6 +1753,97 @@ async function deleteTaskVeloce(id){
   S.taskVeloci=S.taskVeloci.filter(x=>x.id!==id); renderDrawer();
 }
 
+// ============================================================
+// PAGINA CATEGORIE
+// ============================================================
+function renderCategoriePage(pb){
+  const myCats = S.categorie.filter(c=>c.utente_id===S.user.id);
+
+  pb.innerHTML=`
+  <div class="pg-head">
+    <div>
+      <div class="pg-title">🗂 Categorie e Sottocategorie</div>
+      <div class="pg-sub">Gestisci la struttura organizzativa dei tuoi progetti</div>
+    </div>
+    <button class="mbtn mbtn-primary" onclick="openCatModal()">+ Nuova categoria</button>
+  </div>
+
+  ${myCats.length===0?`
+  <div class="empty-state">
+    <div class="es-icon">🗂</div>
+    <p>Nessuna categoria. Creane una per organizzare i tuoi progetti.</p>
+  </div>`:`
+  <div style="display:flex;flex-direction:column;gap:16px;" id="cat-list">
+    ${myCats.map(cat => {
+      const subs = S.sottocategorie.filter(s=>s.categoria_id===cat.id);
+      const nProj = S.progetti.filter(p=>p.categoria_id===cat.id).length;
+      return `
+      <div style="background:#fff;border:1px solid var(--g200);border-radius:var(--r);box-shadow:var(--sh-sm);overflow:hidden;">
+        <!-- Header categoria -->
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:${subs.length?'1px solid var(--g100)':'none'};">
+          <span style="width:14px;height:14px;border-radius:50%;background:${esc(cat.colore)};flex-shrink:0;display:inline-block;"></span>
+          <div style="flex:1;">
+            <div style="font-size:15px;font-weight:700;color:var(--g900);">${esc(cat.nome)}</div>
+            <div style="font-size:11px;color:var(--g500);">${nProj} progett${nProj===1?'o':'i'} · ${subs.length} sottocategor${subs.length===1?'ia':'ie'}</div>
+          </div>
+          <button class="act-btn" onclick="openSubcatModal('${cat.id}')">+ Sottocategoria</button>
+          <button class="act-btn" onclick="openCatModal('${cat.id}')">✏️ Modifica</button>
+          <button class="act-btn" style="color:var(--red)" onclick="deleteCatConfirm('${cat.id}')">🗑️</button>
+        </div>
+        <!-- Sottocategorie -->
+        ${subs.length?`
+        <div style="padding:8px 0;">
+          ${subs.map(sub=>{
+            const nSubProj = S.progetti.filter(p=>p.sottocategoria_id===sub.id).length;
+            return `
+            <div style="display:flex;align-items:center;gap:12px;padding:8px 20px 8px 40px;border-bottom:1px solid var(--g50);">
+              <span style="color:var(--g300);font-size:13px;">└</span>
+              <div style="flex:1;">
+                <div style="font-size:13px;font-weight:600;color:var(--g700);">${esc(sub.nome)}</div>
+                <div style="font-size:11px;color:var(--g500);">${nSubProj} progett${nSubProj===1?'o':'i'}</div>
+              </div>
+              <button class="act-btn" onclick="openSubcatModal('${cat.id}','${sub.id}')">✏️ Modifica</button>
+              <button class="act-btn" style="color:var(--red)" onclick="deleteSubcatConfirm('${sub.id}')">🗑️</button>
+            </div>`;
+          }).join('')}
+        </div>`:''}
+      </div>`;
+    }).join('')}
+  </div>`}`;
+}
+
+async function deleteCatConfirm(catId){
+  const cat=S.categorie.find(c=>c.id===catId);
+  const nProj=S.progetti.filter(p=>p.categoria_id===catId).length;
+  const msg=nProj>0
+    ? `Eliminare la categoria "${cat?.nome}"? I ${nProj} progetti associati perderanno il collegamento alla categoria.`
+    : `Eliminare la categoria "${cat?.nome}"?`;
+  const ok=await openConf('Elimina categoria',msg);
+  if(!ok) return;
+  await db('DELETE',T('categorie'),{flt:`id=eq.${catId}`});
+  S.sottocategorie=S.sottocategorie.filter(s=>s.categoria_id!==catId);
+  S.progetti.forEach(p=>{if(p.categoria_id===catId){p.categoria_id=null;p.sottocategoria_id=null;}});
+  S.categorie=S.categorie.filter(c=>c.id!==catId);
+  await writeLog('categoria_delete','categoria',catId,{nome:cat?.nome});
+  renderCategoriePage($('pb')); toast('Categoria eliminata','ok');
+}
+
+async function deleteSubcatConfirm(subId){
+  const sub=S.sottocategorie.find(s=>s.id===subId);
+  const nProj=S.progetti.filter(p=>p.sottocategoria_id===subId).length;
+  const msg=nProj>0
+    ? `Eliminare la sottocategoria "${sub?.nome}"? I ${nProj} progetti associati perderanno il collegamento.`
+    : `Eliminare la sottocategoria "${sub?.nome}"?`;
+  const ok=await openConf('Elimina sottocategoria',msg);
+  if(!ok) return;
+  await db('DELETE',T('sottocategorie'),{flt:`id=eq.${subId}`});
+  S.progetti.forEach(p=>{if(p.sottocategoria_id===subId) p.sottocategoria_id=null;});
+  S.sottocategorie=S.sottocategorie.filter(s=>s.id!==subId);
+  await writeLog('sottocategoria_delete','sottocategoria',subId,{nome:sub?.nome});
+  renderCategoriePage($('pb')); toast('Sottocategoria eliminata','ok');
+}
+
+// ============================================================
 // ============================================================
 // PAGINA UTENTI
 // ============================================================
