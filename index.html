@@ -503,7 +503,7 @@ const S = {
   log: [],
   page: 'board',
   // UI state
-  boardFilter: { testo: '', categoria_id: '', sottocategoria_id: '' },
+  boardFilter: { testo: '', categoria_id: '', sottocategoria_id: '', hide_completati: false, hide_annullati: false },
   boardExpanded: {}, // { cat_id: bool, sub_id: bool, proj_id: bool }
   ctxTask: null,     // task corrente nel context menu
   drawerOpen: false,
@@ -762,11 +762,22 @@ function renderBoard(pb){
     progetti=progetti.filter(p=>p.sottocategoria_id===f.sottocategoria_id);
   }
 
-  // Tutte le categorie proprie + quelle usate da progetti condivisi visibili
+  // Filtro task per stato se flag attivi
+  let taskVisibili = S.task;
+  if(f.hide_completati) taskVisibili = taskVisibili.filter(t=>t.stato!=='completato');
+  if(f.hide_annullati)  taskVisibili = taskVisibili.filter(t=>t.stato!=='annullato');
+
+  // Se filtro categoria attivo: mostra SOLO quella categoria
+  // Se no: tutte le proprie + quelle con progetti condivisi
   const catUsed = new Set(progetti.map(p=>p.categoria_id).filter(Boolean));
   const myCatIds = new Set(S.categorie.filter(c=>c.utente_id===S.user.id).map(c=>c.id));
-  const cats = S.categorie.filter(c=>myCatIds.has(c.id)||catUsed.has(c.id));
-  const progettiSenzaCat = progetti.filter(p=>!p.categoria_id);
+  let cats;
+  if(f.categoria_id){
+    cats = S.categorie.filter(c=>c.id===f.categoria_id);
+  } else {
+    cats = S.categorie.filter(c=>myCatIds.has(c.id)||catUsed.has(c.id));
+  }
+  const progettiSenzaCat = f.categoria_id ? [] : progetti.filter(p=>!p.categoria_id);
 
   // Categorie per il filtro (tutte)
   const myCats = S.categorie.filter(c=>c.utente_id===S.user.id);
@@ -802,6 +813,16 @@ function renderBoard(pb){
         ${S.sottocategorie.filter(s=>s.categoria_id===f.categoria_id).map(s=>`<option value="${s.id}"${f.sottocategoria_id===s.id?' selected':''}>${esc(s.nome)}</option>`).join('')}
       </select>
     </div>
+    <div class="filtro-group" style="gap:12px;">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;font-size:12px;color:var(--g500);">
+        <input type="checkbox" id="f-hide-comp" ${f.hide_completati?'checked':''} onchange="onFiltroFlag('hide_completati',this.checked)" style="accent-color:var(--verde);width:14px;height:14px;"/>
+        Nascondi completati
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;font-size:12px;color:var(--g500);">
+        <input type="checkbox" id="f-hide-ann" ${f.hide_annullati?'checked':''} onchange="onFiltroFlag('hide_annullati',this.checked)" style="accent-color:var(--verde);width:14px;height:14px;"/>
+        Nascondi annullati
+      </label>
+    </div>
     <button id="filtri-reset" onclick="resetFiltri()">✕ Reset</button>
   </div>
 
@@ -818,10 +839,10 @@ function renderBoard(pb){
     </table>
   </div>`;
 
-  renderBoardRows(cats, progettiSenzaCat, progetti);
+  renderBoardRows(cats, progettiSenzaCat, progetti, taskVisibili);
 }
 
-function renderBoardRows(cats, progettiSenzaCat, allProjFiltered){
+function renderBoardRows(cats, progettiSenzaCat, allProjFiltered, taskVisibili){
   const tbody = $('board-tbody');
   if(!tbody) return;
   let rows = '';
@@ -865,13 +886,13 @@ function renderBoardRows(cats, progettiSenzaCat, allProjFiltered){
         </tr>`;
         if(isExpSub){
           for(const proj of progsInSub){
-            rows += buildProgettoRow(proj, 3);
+            rows += buildProgettoRow(proj, 3, taskVisibili);
           }
         }
       }
       // Progetti nella categoria senza sottocategoria
       for(const proj of progettiInCatNoSub){
-        rows += buildProgettoRow(proj, 2);
+        rows += buildProgettoRow(proj, 2, taskVisibili);
       }
     }
   }
@@ -889,7 +910,7 @@ function renderBoardRows(cats, progettiSenzaCat, allProjFiltered){
       <td class="tasks-cell tasks-cell-cat"></td>
     </tr>`;
     if(S.boardExpanded['nocat']!==false){
-      for(const proj of progettiSenzaCat){ rows+=buildProgettoRow(proj,2); }
+      for(const proj of progettiSenzaCat){ rows+=buildProgettoRow(proj,2,taskVisibili); }
     }
   }
 
@@ -903,9 +924,10 @@ function renderBoardRows(cats, progettiSenzaCat, allProjFiltered){
   initDragDrop();
 }
 
-function buildProgettoRow(proj, indent){
+function buildProgettoRow(proj, indent, taskVisibili){
   const isExpProj = S.boardExpanded['proj_'+proj.id] !== false;
-  const tasks = S.task.filter(t=>t.progetto_id===proj.id).sort((a,b)=>a.posizione-b.posizione);
+  const allTasks = S.task.filter(t=>t.progetto_id===proj.id).sort((a,b)=>(a.riga??0)-(b.riga??0)||a.posizione-b.posizione);
+  const tasks = (taskVisibili||S.task).filter(t=>t.progetto_id===proj.id).sort((a,b)=>(a.riga??0)-(b.riga??0)||a.posizione-b.posizione);
   const owner = profiloById(proj.utente_id);
   const isOwn = proj.utente_id===S.user.id;
   const canWrite = canWriteProgetto(proj);
@@ -931,7 +953,7 @@ function buildProgettoRow(proj, indent){
           <span class="acc-chevron ${isExpProj?'open':''}">▶</span>
         </div>
         <div class="proj-label-bottom">
-          <span class="proj-meta">${tasks.length} task</span>
+          <span class="proj-meta">${allTasks.length} task</span>
           <span style="color:var(--g200);font-size:10px;">|</span>
           <button class="act-btn" style="font-size:10px;padding:1px 6px;" onclick="event.stopPropagation();openProgettoModal('${proj.id}')" title="Modifica progetto">Modifica</button>
           <button class="act-btn" style="font-size:10px;padding:1px 6px;" onclick="event.stopPropagation();openPermessiModal('${proj.id}')" title="Permessi">Permessi</button>
@@ -1038,7 +1060,8 @@ function onFiltroCat(v){
   goPage('board');
 }
 function onFiltroSub(v){ S.boardFilter.sottocategoria_id=v; goPage('board'); }
-function resetFiltri(){ S.boardFilter={testo:'',categoria_id:'',sottocategoria_id:''}; goPage('board'); }
+function onFiltroFlag(key,val){ S.boardFilter[key]=val; goPage('board'); }
+function resetFiltri(){ S.boardFilter={testo:'',categoria_id:'',sottocategoria_id:'',hide_completati:false,hide_annullati:false}; goPage('board'); }
 
 // ============================================================
 // DRAG & DROP TASK
