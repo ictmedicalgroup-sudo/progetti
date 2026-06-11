@@ -794,7 +794,7 @@ function renderBoardRows(cats, progettiSenzaCat, allProjFiltered){
 
     if(isExpCat){
       // Sottocategorie
-      for(const sub of subs.filter(s=>subUsed.has(s.id))){
+      for(const sub of subs){
         const isExpSub = S.boardExpanded['sub_'+sub.id] !== false;
         const progsInSub = allProjFiltered.filter(p=>p.sottocategoria_id===sub.id);
         rows += `<tr class="acc-row-sub" onclick="toggleAcc('sub_${sub.id}')">
