@@ -906,7 +906,6 @@ function buildProgettoRow(proj, indent){
   const isOwn = proj.utente_id===S.user.id;
   const canWrite = canWriteProgetto(proj);
   const ownerPrefix = !isOwn ? `<div class="proj-owner-prefix">${esc(owner?.nome||'')} ${esc(owner?.cognome||'')}</div>` : '';
-  const padLeft = '0px'; // padding gestito da CSS .proj-label
 
   let taskHtml = '';
   if(isExpProj){
@@ -919,7 +918,7 @@ function buildProgettoRow(proj, indent){
 
   return `<tr class="acc-row-proj" onclick="toggleAcc('proj_${proj.id}')">
     <td class="col-label">
-      <div class="proj-label" style="padding-left:${padLeft}">
+      <div class="proj-label">
         <div class="proj-label-top">
           <div style="flex:1;min-width:0;">
             ${ownerPrefix}
