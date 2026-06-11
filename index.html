@@ -1,1 +1,1895 @@
-test
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Medical Group — Gestione Progetti</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700;800&display=swap"/>
+<style>
+:root{
+  --verde:#9DBF60;--grigio:#77797a;--grigio-chiaro:#aaaaaa;
+  --navy:#4A4C4D;--blue:#77797a;--blue-mid:#9DBF60;--blue-light:#D5E3B7;--blue-xlight:#EEF5E3;
+  --accent:#9DBF60;--accent-light:#EEF5E3;
+  --red:#C0392B;--red-light:#FDECEA;--green:#9DBF60;--green-light:#EEF5E3;
+  --orange:#E67E22;--orange-light:#FEF0E3;
+  --purple:#8E44AD;--purple-light:#F4EAF9;
+  --yellow:#F39C12;--yellow-light:#FEF9E3;
+  --g50:#F8F9F8;--g100:#F0F2EE;--g200:#E2E6DF;--g300:#C8CEC4;--g500:#77797a;--g700:#4A4C4D;--g900:#2A2C2D;
+  --sh-sm:0 1px 3px rgba(74,76,77,.08),0 1px 2px rgba(74,76,77,.05);
+  --sh-md:0 4px 12px rgba(74,76,77,.10);--sh-lg:0 12px 32px rgba(74,76,77,.14),0 4px 10px rgba(74,76,77,.07);
+  --r:10px;--rsm:6px;--rlg:16px;
+  font-family:'Raleway',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--g50);color:var(--g900);}
+.hid{display:none!important;}
+
+/* ---- TOAST ---- */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--g700);color:#fff;padding:10px 20px;border-radius:var(--r);
+  font-size:13px;font-weight:600;opacity:0;transition:all .3s;z-index:9999;pointer-events:none;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+#toast.tok{background:var(--verde);}#toast.terr{background:var(--red);}
+#toast.twarn{background:var(--orange);}
+
+/* ---- LOGIN ---- */
+#lp{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--g50);}
+.lcard{background:#fff;border-radius:var(--rlg);padding:40px 38px;width:100%;max-width:420px;
+       box-shadow:var(--sh-lg);border:1px solid var(--g200);}
+.lfield{margin-bottom:16px;}
+.lfield label{display:block;font-size:12px;font-weight:600;color:var(--g700);letter-spacing:.5px;margin-bottom:6px;}
+.lfield input{width:100%;padding:11px 14px;border:1px solid var(--g200);border-radius:var(--rsm);
+              background:#EEF5E3;font-family:'Raleway',sans-serif;font-size:14px;color:var(--g900);
+              outline:none;transition:border-color .2s;}
+.lfield input:focus{border-color:var(--verde);}
+.lbtn{width:100%;padding:12px;background:var(--verde);color:#fff;border:none;border-radius:var(--rsm);
+      font-family:'Raleway',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:opacity .2s;}
+.lbtn:hover{opacity:.88;}
+.lerr{background:var(--red-light);color:var(--red);border-radius:var(--rsm);padding:10px 14px;
+      font-size:13px;margin-top:14px;display:none;}
+
+/* ---- APP SHELL ---- */
+#app{display:flex;flex-direction:column;min-height:100vh;}
+#topbar{background:#fff;border-bottom:1px solid var(--g200);padding:0 28px;
+        position:sticky;top:0;z-index:100;box-shadow:var(--sh-sm);}
+#tb-top{height:52px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--g100);}
+#tb-nav{height:40px;display:flex;align-items:stretch;}
+#tb-right{display:flex;align-items:center;gap:12px;}
+#tb-ver{font-size:10px;color:var(--grigio-chiaro);letter-spacing:.5px;}
+#tb-user{font-size:13px;font-weight:600;color:var(--g700);}
+#tb-role{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--blue-light);color:var(--navy);font-weight:600;letter-spacing:.3px;}
+#lout{background:none;border:1px solid var(--g200);border-radius:var(--rsm);padding:5px 12px;
+      font-family:'Raleway',sans-serif;font-size:12px;font-weight:600;color:var(--g500);cursor:pointer;transition:all .2s;}
+#lout:hover{border-color:var(--red);color:var(--red);}
+.tnb{display:flex;align-items:center;gap:6px;padding:0 16px;font-size:12.5px;font-weight:600;
+     color:var(--g500);cursor:pointer;border:none;background:none;font-family:'Raleway',sans-serif;
+     letter-spacing:.3px;border-bottom:2.5px solid transparent;transition:all .17s;text-transform:uppercase;}
+.tnb:hover{color:var(--g700);border-bottom-color:var(--g300);}
+.tnb.active{color:var(--verde);border-bottom-color:var(--verde);}
+
+/* ---- MAIN + DRAWER ---- */
+#app-body{display:flex;flex:1;overflow:hidden;position:relative;}
+#main{flex:1;padding:28px;overflow-y:auto;transition:margin-left .3s;}
+#drawer{position:fixed;left:0;top:52px;/* sotto topbar */height:calc(100vh - 92px);/* 52+40 topbar */
+        width:300px;background:#fff;border-right:1px solid var(--g200);box-shadow:var(--sh-md);
+        z-index:90;transform:translateX(-100%);transition:transform .3s;display:flex;flex-direction:column;}
+#drawer.open{transform:translateX(0);}
+#drawer-toggle{position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:91;
+               background:var(--verde);color:#fff;border:none;cursor:pointer;
+               padding:10px 6px;border-radius:0 var(--rsm) var(--rsm) 0;box-shadow:var(--sh-md);
+               font-size:16px;writing-mode:vertical-rl;letter-spacing:1px;font-family:'Raleway',sans-serif;
+               font-weight:700;font-size:11px;transition:left .3s;}
+#drawer-toggle.open{left:300px;}
+
+/* ---- DRAWER CONTENT ---- */
+#drawer-head{padding:16px;border-bottom:1px solid var(--g100);display:flex;align-items:center;justify-content:space-between;}
+#drawer-head h3{font-size:13px;font-weight:700;color:var(--g700);text-transform:uppercase;letter-spacing:.5px;}
+#drawer-date{font-size:11px;color:var(--g500);}
+#drawer-add-row{padding:12px 16px;border-bottom:1px solid var(--g100);display:flex;gap:8px;}
+#drawer-add-input{flex:1;padding:8px 10px;border:1px solid var(--g200);border-radius:var(--rsm);
+                  font-family:'Raleway',sans-serif;font-size:13px;outline:none;background:var(--g50);}
+#drawer-add-input:focus{border-color:var(--verde);}
+#drawer-add-btn{background:var(--verde);color:#fff;border:none;border-radius:var(--rsm);
+                padding:8px 12px;cursor:pointer;font-size:16px;font-weight:700;}
+#drawer-list{flex:1;overflow-y:auto;padding:8px 0;}
+.tv-item{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;transition:background .15s;
+         border-bottom:1px solid var(--g50);}
+.tv-item:hover{background:var(--g50);}
+.tv-item.done .tv-text{text-decoration:line-through;color:var(--g300);}
+.tv-check{width:18px;height:18px;border:2px solid var(--g300);border-radius:4px;flex-shrink:0;
+          display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;}
+.tv-check.checked{background:var(--verde);border-color:var(--verde);color:#fff;}
+.tv-text{flex:1;font-size:13px;color:var(--g700);}
+.tv-link{font-size:10px;color:var(--g500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px;}
+.tv-del{color:var(--g300);font-size:14px;cursor:pointer;flex-shrink:0;padding:2px 4px;}
+.tv-del:hover{color:var(--red);}
+#drawer-drop-zone{margin:8px 16px;padding:10px;border:2px dashed var(--g200);border-radius:var(--rsm);
+                  text-align:center;font-size:12px;color:var(--g300);transition:all .2s;}
+#drawer-drop-zone.drag-over{border-color:var(--verde);color:var(--verde);background:var(--accent-light);}
+
+/* ---- PAGE HEADER ---- */
+.pg-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;}
+.pg-title{font-size:22px;font-weight:700;color:var(--g900);}
+.pg-sub{font-size:13px;color:var(--g500);margin-top:2px;}
+
+/* ---- FILTRI ---- */
+#filtri-bar{background:#fff;border:1px solid var(--g200);border-radius:var(--r);padding:14px 20px;
+            margin-bottom:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;box-shadow:var(--sh-sm);}
+.filtro-group{display:flex;align-items:center;gap:8px;}
+.filtro-group label{font-size:12px;font-weight:600;color:var(--g500);white-space:nowrap;}
+.filtro-input,.filtro-sel{padding:7px 12px;border:1px solid var(--g200);border-radius:var(--rsm);
+                          font-family:'Raleway',sans-serif;font-size:13px;color:var(--g700);
+                          outline:none;transition:border-color .2s;background:#fff;}
+.filtro-input:focus,.filtro-sel:focus{border-color:var(--verde);}
+#filtri-reset{background:none;border:1px solid var(--g200);border-radius:var(--rsm);padding:7px 14px;
+              font-family:'Raleway',sans-serif;font-size:12px;font-weight:600;color:var(--g500);cursor:pointer;}
+#filtri-reset:hover{border-color:var(--red);color:var(--red);}
+
+/* ---- BOARD (accordion + task orizzontali) ---- */
+#board-wrap{overflow-x:auto;border-radius:var(--r);}
+.board-table{border-collapse:separate;border-spacing:0;min-width:900px;width:100%;}
+
+/* Prima colonna sticky */
+.board-table .col-label{
+  position:sticky;left:0;z-index:20;background:#fff;
+  min-width:220px;max-width:260px;width:240px;
+  border-right:2px solid var(--g200);
+}
+.board-table thead .col-label{background:var(--g100);}
+
+/* Header colonna label */
+.board-th-label{
+  padding:10px 16px;font-size:11px;font-weight:700;color:var(--g500);
+  text-transform:uppercase;letter-spacing:.5px;background:var(--g100);
+  border-bottom:2px solid var(--g200);
+}
+.board-th-tasks{
+  padding:10px 16px;font-size:11px;font-weight:700;color:var(--g500);
+  text-transform:uppercase;letter-spacing:.5px;background:var(--g100);
+  border-bottom:2px solid var(--g200);white-space:nowrap;
+}
+
+/* Righe accordion */
+.acc-row-cat,.acc-row-sub,.acc-row-proj{
+  cursor:pointer;
+  transition:background .15s;
+}
+/* Categoria */
+.acc-row-cat .col-label{
+  background:var(--g100);border-bottom:1px solid var(--g200);
+}
+.acc-row-cat:hover .col-label{background:var(--g200);}
+.cat-label{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 16px;font-size:12.5px;font-weight:700;color:var(--g700);
+  text-transform:uppercase;letter-spacing:.3px;
+}
+.cat-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.acc-chevron{font-size:10px;transition:transform .2s;margin-left:auto;}
+.acc-chevron.open{transform:rotate(90deg);}
+
+/* Sottocategoria */
+.acc-row-sub .col-label{
+  background:#fff;border-bottom:1px solid var(--g100);
+}
+.acc-row-sub:hover .col-label{background:var(--g50);}
+.sub-label{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 16px 8px 32px;font-size:12px;font-weight:600;color:var(--g500);
+  letter-spacing:.2px;
+}
+
+/* Progetto */
+.acc-row-proj .col-label{
+  background:#fff;border-bottom:1px solid var(--g100);
+}
+.acc-row-proj:hover .col-label{background:var(--g50);}
+.proj-label{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 16px 8px 48px;font-size:13px;font-weight:600;color:var(--g900);
+}
+.proj-meta{font-size:10px;color:var(--g500);white-space:nowrap;}
+.proj-owner-prefix{font-size:10px;color:var(--g500);font-style:italic;margin-bottom:2px;}
+
+/* Cella task (orizzontale) */
+.tasks-cell{
+  padding:8px 12px;vertical-align:middle;
+  border-bottom:1px solid var(--g100);
+  white-space:nowrap;
+}
+.tasks-row{
+  display:flex;align-items:center;gap:8px;min-height:44px;
+}
+/* Task card */
+.task-card{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 10px;border-radius:var(--rsm);border:1.5px solid transparent;
+  font-size:12px;font-weight:600;cursor:pointer;
+  transition:all .17s;user-select:none;white-space:nowrap;
+  max-width:180px;overflow:hidden;text-overflow:ellipsis;
+  position:relative;
+}
+.task-card:hover{transform:translateY(-2px);box-shadow:var(--sh-md);}
+.task-card.dragging{opacity:.5;transform:scale(.97);}
+.task-card.drag-over-left::before{
+  content:'';position:absolute;left:-4px;top:0;bottom:0;width:3px;
+  background:var(--verde);border-radius:2px;
+}
+/* Colori per stato */
+.task-card.s-aperto{background:#fff;border-color:var(--g200);color:var(--g700);}
+.task-card.s-in_corso{background:var(--yellow-light);border-color:var(--yellow);color:#8a5500;}
+.task-card.s-completato{background:var(--green-light);border-color:var(--verde);color:#3d5a14;}
+.task-card.s-bloccato{background:var(--red-light);border-color:var(--red);color:var(--red);}
+.task-card.s-annullato{background:var(--g100);border-color:var(--g200);color:var(--g300);text-decoration:line-through;}
+.task-dep-icon{font-size:10px;opacity:.7;}  /* lucchetto se bloccato da dipendenze */
+/* Freccia dipendenza tra task */
+.task-dep-arrow{color:var(--g300);font-size:14px;flex-shrink:0;}
+
+/* Add task button */
+.add-task-btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:28px;height:28px;border-radius:50%;border:1.5px dashed var(--g200);
+  background:none;color:var(--g300);cursor:pointer;font-size:18px;flex-shrink:0;
+  transition:all .17s;
+}
+.add-task-btn:hover{border-color:var(--verde);color:var(--verde);background:var(--accent-light);}
+
+/* Cella task per righe categoria/sottocategoria (vuota ma con sfondo) */
+.tasks-cell-cat{background:var(--g100);border-bottom:1px solid var(--g200);}
+.tasks-cell-sub{background:var(--g50);border-bottom:1px solid var(--g100);}
+
+/* ---- CONTEXT MENU ---- */
+#ctx-menu{
+  position:fixed;background:#fff;border:1px solid var(--g200);border-radius:var(--r);
+  box-shadow:var(--sh-lg);z-index:10000;min-width:180px;padding:6px 0;
+  display:none;
+}
+#ctx-menu.show{display:block;}
+.ctx-item{
+  padding:8px 16px;font-size:13px;color:var(--g700);cursor:pointer;
+  display:flex;align-items:center;gap:10px;transition:background .15s;
+}
+.ctx-item:hover{background:var(--g50);}
+.ctx-item .ctx-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.ctx-sep{height:1px;background:var(--g100);margin:4px 0;}
+
+/* ---- MODALE GENERICA ---- */
+#modal-overlay{
+  position:fixed;inset:0;background:rgba(74,76,77,.45);z-index:200;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+#modal-overlay.show{opacity:1;pointer-events:all;}
+#modal-box{
+  background:#fff;border-radius:var(--rlg);padding:32px 36px;width:100%;max-width:560px;
+  max-height:90vh;overflow-y:auto;box-shadow:var(--sh-lg);
+  transform:translateY(16px);transition:transform .2s;
+}
+#modal-overlay.show #modal-box{transform:translateY(0);}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;}
+.modal-title{font-size:17px;font-weight:700;color:var(--g900);}
+.modal-close{background:none;border:none;font-size:22px;color:var(--g300);cursor:pointer;padding:0 4px;}
+.modal-close:hover{color:var(--g700);}
+.mfield{margin-bottom:16px;}
+.mfield label{display:block;font-size:12px;font-weight:600;color:var(--g700);letter-spacing:.4px;margin-bottom:6px;}
+.mfield input,.mfield textarea,.mfield select{
+  width:100%;padding:10px 14px;border:1px solid var(--g200);border-radius:var(--rsm);
+  font-family:'Raleway',sans-serif;font-size:14px;color:var(--g900);outline:none;
+  transition:border-color .2s;background:#fff;
+}
+.mfield input:focus,.mfield textarea:focus,.mfield select:focus{border-color:var(--verde);}
+.mfield textarea{resize:vertical;min-height:80px;}
+.mfield-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.mfield-hint{font-size:11px;color:var(--g500);margin-top:4px;}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;}
+.mbtn{padding:10px 22px;border-radius:var(--rsm);font-family:'Raleway',sans-serif;
+      font-size:13px;font-weight:700;cursor:pointer;border:none;transition:all .17s;}
+.mbtn-primary{background:var(--verde);color:#fff;}
+.mbtn-primary:hover{opacity:.88;}
+.mbtn-secondary{background:var(--g100);color:var(--g700);border:1px solid var(--g200);}
+.mbtn-secondary:hover{background:var(--g200);}
+.mbtn-danger{background:var(--red-light);color:var(--red);border:1px solid var(--red);}
+.mbtn-danger:hover{background:var(--red);color:#fff;}
+
+/* Task detail modal extra */
+.task-detail-stato{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;}
+.task-dep-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+.dep-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;
+           background:var(--g100);font-size:12px;color:var(--g700);border:1px solid var(--g200);}
+.dep-badge .dep-remove{cursor:pointer;color:var(--g300);font-size:14px;}
+.dep-badge .dep-remove:hover{color:var(--red);}
+.dep-select-wrap{display:flex;gap:8px;margin-top:8px;}
+.dep-select-wrap select{flex:1;}
+
+/* ---- PAGINA UTENTI ---- */
+.utenti-table{width:100%;border-collapse:collapse;margin-top:16px;}
+.utenti-table th{padding:10px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;
+                  letter-spacing:.5px;color:var(--g500);background:var(--g100);border-bottom:2px solid var(--g200);}
+.utenti-table td{padding:12px 14px;font-size:13px;border-bottom:1px solid var(--g100);vertical-align:middle;}
+.utenti-table tr:hover td{background:var(--g50);}
+.role-badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+.role-badge.admin{background:var(--purple-light);color:var(--purple);}
+.role-badge.utente{background:var(--blue-light);color:var(--navy);}
+.stato-badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+.stato-badge.attivo{background:var(--green-light);color:var(--verde);}
+.stato-badge.inattivo{background:var(--red-light);color:var(--red);}
+.act-btn{background:none;border:1px solid var(--g200);border-radius:var(--rsm);padding:4px 10px;
+         font-family:'Raleway',sans-serif;font-size:12px;font-weight:600;color:var(--g500);cursor:pointer;transition:all .17s;}
+.act-btn:hover{border-color:var(--verde);color:var(--verde);}
+
+/* ---- LOG ---- */
+.log-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+.log-table th{padding:8px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;
+              letter-spacing:.5px;color:var(--g500);background:var(--g100);border-bottom:2px solid var(--g200);}
+.log-table td{padding:9px 12px;border-bottom:1px solid var(--g50);vertical-align:top;}
+.log-table tr:hover td{background:var(--g50);}
+.log-json{font-family:monospace;font-size:11px;color:var(--g500);white-space:pre-wrap;word-break:break-all;
+          max-height:60px;overflow:hidden;cursor:pointer;}
+.log-json.expanded{max-height:none;}
+
+/* ---- PERMESSI MODAL ---- */
+.perm-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--g100);}
+.perm-item:last-child{border-bottom:none;}
+.perm-name{flex:1;font-size:13px;font-weight:600;color:var(--g700);}
+.perm-level{font-size:12px;padding:2px 10px;border-radius:20px;font-weight:700;}
+.perm-level.read{background:var(--blue-light);color:var(--navy);}
+.perm-level.write{background:var(--green-light);color:#3d5a14;}
+
+/* ---- SPINNER ---- */
+.spn{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);
+     border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---- EMPTY STATE ---- */
+.empty-state{text-align:center;padding:60px 20px;color:var(--g300);}
+.empty-state .es-icon{font-size:48px;margin-bottom:12px;}
+.empty-state p{font-size:14px;}
+
+/* ---- CARD (usata in home/dashboard) ---- */
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:28px;}
+.stat-card{background:#fff;border:1px solid var(--g200);border-radius:var(--r);padding:20px;box-shadow:var(--sh-sm);}
+.stat-val{font-size:28px;font-weight:800;color:var(--g900);}
+.stat-label{font-size:12px;color:var(--g500);margin-top:4px;}
+.stat-card.verde .stat-val{color:var(--verde);}
+.stat-card.red .stat-val{color:var(--red);}
+.stat-card.yellow .stat-val{color:var(--yellow);}
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- CONTEXT MENU -->
+<div id="ctx-menu">
+  <div class="ctx-item" data-stato="aperto"><span class="ctx-dot" style="background:#E2E6DF"></span>Aperto</div>
+  <div class="ctx-item" data-stato="in_corso"><span class="ctx-dot" style="background:var(--yellow)"></span>In corso</div>
+  <div class="ctx-item" data-stato="completato"><span class="ctx-dot" style="background:var(--verde)"></span>Completato</div>
+  <div class="ctx-item" data-stato="bloccato"><span class="ctx-dot" style="background:var(--red)"></span>Bloccato</div>
+  <div class="ctx-item" data-stato="annullato"><span class="ctx-dot" style="background:var(--g300)"></span>Annullato</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" id="ctx-detail">✏️ Dettaglio</div>
+  <div class="ctx-item" id="ctx-delete" style="color:var(--red)">🗑️ Elimina</div>
+</div>
+
+<!-- MODAL OVERLAY -->
+<div id="modal-overlay">
+  <div id="modal-box"></div>
+</div>
+
+<!-- MODAL CONFERMA -->
+<div id="conf-overlay" style="position:fixed;inset:0;background:rgba(74,76,77,.45);z-index:300;display:none;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:var(--rlg);padding:28px 32px;max-width:400px;width:100%;box-shadow:var(--sh-lg);">
+    <div style="font-size:16px;font-weight:700;margin-bottom:12px;" id="conf-title">Conferma</div>
+    <div style="font-size:13px;color:var(--g500);margin-bottom:24px;" id="conf-msg"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="mbtn mbtn-secondary" id="conf-no">Annulla</button>
+      <button class="mbtn mbtn-danger" id="conf-yes">Conferma</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="lp">
+  <div class="lcard">
+    <div id="login-logo"></div>
+    <div style="margin-top:14px;font-size:13px;color:var(--grigio);text-align:center">
+      Accesso riservato al personale autorizzato
+    </div>
+    <div id="lerr" class="lerr"></div>
+    <div class="lfield" style="margin-top:12px;">
+      <label>E-Mail</label>
+      <input type="email" id="lem" placeholder="nome@medicalgroup.it" autocomplete="username"/>
+    </div>
+    <div class="lfield">
+      <label>Password</label>
+      <input type="password" id="lpw" placeholder="••••••••" autocomplete="current-password"/>
+    </div>
+    <button class="lbtn" id="lbtn">Accedi</button>
+    <div id="login-ver" style="margin-top:14px;font-size:10px;color:var(--grigio-chiaro);text-align:center;letter-spacing:.5px;"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hid">
+  <div id="topbar">
+    <div id="tb-top">
+      <div id="tb-logo"></div>
+      <div id="tb-right">
+        <span id="tb-ver"></span>
+        <span id="tb-user"></span>
+        <span id="tb-role"></span>
+        <button id="lout">Esci</button>
+      </div>
+    </div>
+    <nav id="tb-nav"></nav>
+  </div>
+
+  <!-- DRAWER TASK VELOCI -->
+  <button id="drawer-toggle">☰ NOTE</button>
+  <div id="drawer">
+    <div id="drawer-head">
+      <h3>Task del giorno</h3>
+      <span id="drawer-date"></span>
+    </div>
+    <div id="drawer-add-row">
+      <input type="text" id="drawer-add-input" placeholder="Aggiungi task veloce…"/>
+      <button id="drawer-add-btn">+</button>
+    </div>
+    <div id="drawer-drop-zone">⬇ Trascina un task qui per aggiungerlo alle note</div>
+    <div id="drawer-list"></div>
+  </div>
+
+  <main id="main">
+    <div id="pb"></div>
+
+  </main>
+</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const CFG = {
+  URL: 'https://iczsdqcnvauopwkuspti.supabase.co',
+  KEY: 'YOUR_ANON_KEY_HERE',
+  FN:  'https://iczsdqcnvauopwkuspti.supabase.co/functions/v1',
+};
+const T = n => `progetti_${n}`;
+
+// ============================================================
+// STATO GLOBALE
+// ============================================================
+const S = {
+  user: null, token: null,
+  profili: [],
+  categorie: [], sottocategorie: [],
+  progetti: [], permessi: [],
+  task: [], dipendenze: [],
+  taskVeloci: [],
+  log: [],
+  page: 'board',
+  // UI state
+  boardFilter: { testo: '', categoria_id: '', sottocategoria_id: '' },
+  boardExpanded: {}, // { cat_id: bool, sub_id: bool, proj_id: bool }
+  ctxTask: null,     // task corrente nel context menu
+  drawerOpen: false,
+  drawerDate: null,
+};
+
+// ============================================================
+// UTILITIES
+// ============================================================
+const $   = id => document.getElementById(id);
+const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const p2  = n => String(n).padStart(2,'0');
+
+function fmt(d){
+  if(!d) return '—';
+  const dt = typeof d==='string'?new Date(d.length===10?d+'T00:00:00':d):d;
+  return dt.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+function dateToStr(d){ return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`; }
+function today(){ return dateToStr(new Date()); }
+
+let _tid;
+function toast(msg,type='ok'){
+  const el=$('toast'); clearTimeout(_tid);
+  el.textContent=msg; el.className=`show t${type}`;
+  _tid=setTimeout(()=>el.className='',3200);
+}
+
+function openConf(title,msg){
+  return new Promise(res=>{
+    $('conf-title').textContent=title;
+    $('conf-msg').textContent=msg;
+    const ov=$('conf-overlay'); ov.style.display='flex';
+    const yes=$('conf-yes'), no=$('conf-no');
+    const cleanup=()=>{ ov.style.display='none'; yes.onclick=null; no.onclick=null; };
+    yes.onclick=()=>{ cleanup(); res(true); };
+    no.onclick =()=>{ cleanup(); res(false); };
+  });
+}
+
+// ============================================================
+// SUPABASE REST
+// ============================================================
+async function db(method, table, opts={}){
+  const {flt='',body=null,sel='*',ord='',lim='',prefer=''}=opts;
+  let url=`${CFG.URL}/rest/v1/${table}?select=${sel}`;
+  if(flt) url+=`&${flt}`;
+  if(ord) url+=`&order=${ord}`;
+  if(lim) url+=`&limit=${lim}`;
+  const headers={
+    'apikey':CFG.KEY,
+    'Authorization':`Bearer ${S.token||CFG.KEY}`,
+    'Content-Type':'application/json',
+    'Prefer': prefer || (method==='POST'?'return=representation':''),
+  };
+  const res=await fetch(url,{method,headers,body:body?JSON.stringify(body):undefined});
+  if(!res.ok){const e=await res.text();throw new Error(`${method} ${table}: ${e}`);}
+  return method==='DELETE'?null:res.json();
+}
+
+async function supaLogin(email,pwd){
+  const res=await fetch(`${CFG.URL}/auth/v1/token?grant_type=password`,{
+    method:'POST',
+    headers:{'apikey':CFG.KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({email,password:pwd}),
+  });
+  const data=await res.json();
+  if(!res.ok) throw new Error(data.error_description||data.message||'Errore login');
+  return data;
+}
+
+async function fn(name, body){
+  const res=await fetch(`${CFG.FN}/${name}`,{
+    method:'POST',
+    headers:{'Authorization':`Bearer ${S.token}`,'Content-Type':'application/json'},
+    body:JSON.stringify(body),
+  });
+  return res.json();
+}
+
+async function writeLog(azione, entita, entitaId, dettaglio={}){
+  try {
+    await db('POST', T('log'), {
+      body: {
+        utente_id: S.user.id,
+        azione, entita, entita_id: entitaId,
+        dettaglio: { ...dettaglio, utente: `${S.user.nome} ${S.user.cognome}` }
+      }
+    });
+  } catch(e){ /* log non bloccante */ }
+}
+
+// ============================================================
+// LOAD ALL
+// ============================================================
+async function loadAll(){
+  const [profili,categorie,sottocategorie,progetti,permessi,task,dipendenze,taskVeloci] = await Promise.all([
+    db('GET', T('profili'),        {ord:'cognome.asc,nome.asc'}),
+    db('GET', T('categorie'),      {ord:'ordine.asc,nome.asc'}),
+    db('GET', T('sottocategorie'), {ord:'ordine.asc,nome.asc'}),
+    db('GET', T('progetti'),       {ord:'ordine.asc,nome.asc'}),
+    db('GET', T('permessi'),       {}),
+    db('GET', T('task'),           {ord:'posizione.asc'}),
+    db('GET', T('task_dipendenze'),{}),
+    db('GET', T('task_veloci'),    {flt:`data_riferimento=eq.${today()}`,ord:'ordine.asc'}),
+  ]);
+  S.profili=profili||[]; S.categorie=categorie||[];
+  S.sottocategorie=sottocategorie||[]; S.progetti=progetti||[];
+  S.permessi=permessi||[]; S.task=task||[];
+  S.dipendenze=dipendenze||[]; S.taskVeloci=taskVeloci||[];
+}
+
+async function loadLog(){
+  S.log = await db('GET', T('log'), {ord:'created_at.desc', lim:'200'});
+}
+
+// ============================================================
+// LOGO
+// ============================================================
+function logoSVG(small){
+  const w=small?28:36,h=small?22:28;
+  return `<svg width="${w}" height="${h}" viewBox="0 0 90 70" fill="none">
+    <circle cx="28" cy="22" r="19" stroke="#D5E3B7" stroke-width="3.5" fill="none"/>
+    <circle cx="40" cy="38" r="24" stroke="#77797A" stroke-width="3.5" fill="none"/>
+  </svg>`;
+}
+function logoHTML(small=false){
+  return `<div style="display:flex;align-items:center;gap:${small?6:10}px;">
+    ${logoSVG(small)}
+    <div style="line-height:1.15;">
+      <div style="font-weight:300;font-size:${small?11:14}px;letter-spacing:4px;text-transform:uppercase;">
+        <span style="color:var(--grigio);">MEDICAL</span><span style="color:var(--verde);">GROUP</span>
+      </div>
+      <div style="font-size:9px;letter-spacing:2px;color:var(--grigio-chiaro);text-transform:uppercase;font-weight:500;">
+        Gestione Progetti
+      </div>
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// TOPBAR / NAV
+// ============================================================
+const NAV = [
+  { id:'board',   label:'📋 Board',   always:true },
+  { id:'utenti',  label:'👥 Utenti',  admin:true  },
+  { id:'log',     label:'📜 Log',     admin:true  },
+];
+
+function renderSidebar(){
+  const isAdmin = S.user?.ruolo==='admin';
+  $('tb-user').textContent = `${S.user.nome} ${S.user.cognome}`;
+  $('tb-role').textContent = isAdmin ? 'Admin' : 'Utente';
+  $('tb-nav').innerHTML = NAV
+    .filter(n=>n.always||(n.admin&&isAdmin))
+    .map(n=>`<button class="tnb${S.page===n.id?' active':''}" onclick="goPage('${n.id}')">${n.label}</button>`)
+    .join('');
+}
+
+function goPage(pg){
+  S.page=pg; renderSidebar();
+  const pb=$('pb');
+  if(pg==='board')   renderBoard(pb);
+  else if(pg==='utenti') renderUtenti(pb);
+  else if(pg==='log')    renderLogPage(pb);
+}
+
+// ============================================================
+// LOGIN
+// ============================================================
+async function doLogin(){
+  const email=$('lem').value.trim(), pwd=$('lpw').value;
+  const btn=$('lbtn'), err=$('lerr');
+  err.style.display='none';
+  if(!email||!pwd){err.textContent='Inserisci email e password.';err.style.display='block';return;}
+  btn.innerHTML='<span class="spn"></span> Accesso…'; btn.disabled=true;
+  try{
+    const auth=await supaLogin(email,pwd);
+    S.token=auth.access_token;
+    const [profilo]=await db('GET',T('profili'),{flt:`id=eq.${auth.user.id}`});
+    if(!profilo) throw new Error('Profilo non trovato. Contatta l\'amministratore.');
+    if(profilo.attivo===false) throw new Error('Utente disabilitato. Contatta l\'amministratore.');
+    S.user=profilo;
+    await loadAll();
+    $('lp').classList.add('hid'); $('app').classList.remove('hid');
+    initDrawer(); renderSidebar(); goPage('board');
+  }catch(e){
+    err.textContent=e.message; err.style.display='block';
+    btn.innerHTML='Accedi'; btn.disabled=false;
+  }
+}
+function doLogout(){S.token=null;S.user=null;$('app').classList.add('hid');$('lp').classList.remove('hid');}
+
+// ============================================================
+// HELPERS: profilo display, permessi
+// ============================================================
+function profiloById(id){ return S.profili.find(p=>p.id===id)||null; }
+function profiloNome(id){ const p=profiloById(id); return p?`${p.nome} ${p.cognome}`:'—'; }
+
+function canWriteProgetto(proj){
+  if(S.user.ruolo==='admin') return true;
+  if(proj.utente_id===S.user.id) return true;
+  return S.permessi.some(p=>p.progetto_id===proj.id&&p.utente_id===S.user.id&&p.livello==='write');
+}
+function isOwner(proj){ return proj.utente_id===S.user.id||S.user.ruolo==='admin'; }
+
+// ============================================================
+// RENDER BOARD
+// ============================================================
+function renderBoard(pb){
+  const f=S.boardFilter;
+  // Costruisco albero: categorie → sottocategorie → progetti
+  // Includo anche progetti senza categoria
+  let progetti = S.progetti;
+
+  // Filtro testo
+  if(f.testo){
+    const q=f.testo.toLowerCase();
+    progetti=progetti.filter(p=>
+      p.nome.toLowerCase().includes(q)||
+      (p.descrizione||'').toLowerCase().includes(q)||
+      S.task.filter(t=>t.progetto_id===p.id&&t.nome.toLowerCase().includes(q)).length>0
+    );
+  }
+  // Filtro categoria
+  if(f.categoria_id){
+    progetti=progetti.filter(p=>p.categoria_id===f.categoria_id);
+  }
+  // Filtro sottocategoria
+  if(f.sottocategoria_id){
+    progetti=progetti.filter(p=>p.sottocategoria_id===f.sottocategoria_id);
+  }
+
+  // Categorie usate dai progetti visibili + "senza categoria"
+  const catUsed = new Set(progetti.map(p=>p.categoria_id).filter(Boolean));
+  const cats = S.categorie.filter(c=>catUsed.has(c.id));
+  const progettiSenzaCat = progetti.filter(p=>!p.categoria_id);
+
+  // Categorie per il filtro (tutte)
+  const myCats = S.categorie.filter(c=>c.utente_id===S.user.id);
+
+  pb.innerHTML=`
+  <div class="pg-head">
+    <div>
+      <div class="pg-title">📋 Board Progetti</div>
+      <div class="pg-sub">Gestisci categorie, progetti e task</div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="mbtn mbtn-secondary" onclick="openCatModal()">+ Categoria</button>
+      <button class="mbtn mbtn-primary" onclick="openProgettoModal()">+ Progetto</button>
+    </div>
+  </div>
+
+  <div id="filtri-bar">
+    <div class="filtro-group">
+      <label>🔍</label>
+      <input class="filtro-input" id="f-testo" placeholder="Cerca progetto o task…" value="${esc(f.testo)}" oninput="onFiltroTesto(this.value)" style="width:220px;"/>
+    </div>
+    <div class="filtro-group">
+      <label>Categoria</label>
+      <select class="filtro-sel" id="f-cat" onchange="onFiltroCat(this.value)">
+        <option value="">Tutte</option>
+        ${myCats.map(c=>`<option value="${c.id}"${f.categoria_id===c.id?' selected':''}>${esc(c.nome)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="filtro-group" id="f-sub-group" style="${f.categoria_id?'':'display:none'}">
+      <label>Sottocategoria</label>
+      <select class="filtro-sel" id="f-sub" onchange="onFiltroSub(this.value)">
+        <option value="">Tutte</option>
+        ${S.sottocategorie.filter(s=>s.categoria_id===f.categoria_id).map(s=>`<option value="${s.id}"${f.sottocategoria_id===s.id?' selected':''}>${esc(s.nome)}</option>`).join('')}
+      </select>
+    </div>
+    <button id="filtri-reset" onclick="resetFiltri()">✕ Reset</button>
+  </div>
+
+  <div id="board-wrap">
+    <table class="board-table">
+      <thead>
+        <tr>
+          <th class="board-th-label col-label">Progetto / Task</th>
+          <th class="board-th-tasks">Task →</th>
+        </tr>
+      </thead>
+      <tbody id="board-tbody">
+      </tbody>
+    </table>
+  </div>`;
+
+  renderBoardRows(cats, progettiSenzaCat, progetti);
+}
+
+function renderBoardRows(cats, progettiSenzaCat, allProjFiltered){
+  const tbody = $('board-tbody');
+  if(!tbody) return;
+  let rows = '';
+
+  // Categorie con i loro progetti
+  for(const cat of cats){
+    const isExpCat = S.boardExpanded['cat_'+cat.id] !== false; // default espanso
+    const subs = S.sottocategorie.filter(s=>s.categoria_id===cat.id);
+    const subUsed = new Set(allProjFiltered.filter(p=>p.categoria_id===cat.id).map(p=>p.sottocategoria_id).filter(Boolean));
+    const progettiInCatNoSub = allProjFiltered.filter(p=>p.categoria_id===cat.id&&!p.sottocategoria_id);
+    const catOwner = profiloById(cat.utente_id);
+    const isOwnCat = cat.utente_id===S.user.id;
+    const catLabel = isOwnCat ? esc(cat.nome) : `${esc(catOwner?.nome||'')} ${esc(catOwner?.cognome||'')} | ${esc(cat.nome)}`;
+
+    rows += `<tr class="acc-row-cat" onclick="toggleAcc('cat_${cat.id}')">
+      <td class="col-label">
+        <div class="cat-label">
+          <span class="cat-dot" style="background:${esc(cat.colore)}"></span>
+          <span style="flex:1">${catLabel}</span>
+          <button class="add-task-btn" style="font-size:13px;width:24px;height:24px;" title="Nuova sottocategoria" onclick="event.stopPropagation();openSubcatModal('${cat.id}')">+</button>
+          <span class="acc-chevron ${isExpCat?'open':''}">▶</span>
+        </div>
+      </td>
+      <td class="tasks-cell tasks-cell-cat"></td>
+    </tr>`;
+
+    if(isExpCat){
+      // Sottocategorie
+      for(const sub of subs.filter(s=>subUsed.has(s.id))){
+        const isExpSub = S.boardExpanded['sub_'+sub.id] !== false;
+        const progsInSub = allProjFiltered.filter(p=>p.sottocategoria_id===sub.id);
+        rows += `<tr class="acc-row-sub" onclick="toggleAcc('sub_${sub.id}')">
+          <td class="col-label">
+            <div class="sub-label">
+              <span style="color:var(--g300)">└</span>
+              <span style="flex:1">${esc(sub.nome)}</span>
+              <span class="acc-chevron ${isExpSub?'open':''}">▶</span>
+            </div>
+          </td>
+          <td class="tasks-cell tasks-cell-sub"></td>
+        </tr>`;
+        if(isExpSub){
+          for(const proj of progsInSub){
+            rows += buildProgettoRow(proj, 3);
+          }
+        }
+      }
+      // Progetti nella categoria senza sottocategoria
+      for(const proj of progettiInCatNoSub){
+        rows += buildProgettoRow(proj, 2);
+      }
+    }
+  }
+
+  // Progetti senza categoria
+  if(progettiSenzaCat.length>0){
+    rows += `<tr class="acc-row-cat" onclick="toggleAcc('nocat')">
+      <td class="col-label">
+        <div class="cat-label">
+          <span class="cat-dot" style="background:var(--g300)"></span>
+          <span style="flex:1">Senza categoria</span>
+          <span class="acc-chevron ${S.boardExpanded['nocat']!==false?'open':''}">▶</span>
+        </div>
+      </td>
+      <td class="tasks-cell tasks-cell-cat"></td>
+    </tr>`;
+    if(S.boardExpanded['nocat']!==false){
+      for(const proj of progettiSenzaCat){ rows+=buildProgettoRow(proj,2); }
+    }
+  }
+
+  if(!rows){
+    tbody.innerHTML=`<tr><td colspan="2" style="padding:40px;text-align:center;color:var(--g300);font-size:14px;">
+      Nessun progetto trovato. Prova a cambiare i filtri o crea un nuovo progetto.
+    </td></tr>`;
+    return;
+  }
+  tbody.innerHTML=rows;
+  initDragDrop();
+}
+
+function buildProgettoRow(proj, indent){
+  const isExpProj = S.boardExpanded['proj_'+proj.id] !== false;
+  const tasks = S.task.filter(t=>t.progetto_id===proj.id).sort((a,b)=>a.posizione-b.posizione);
+  const owner = profiloById(proj.utente_id);
+  const isOwn = proj.utente_id===S.user.id;
+  const canWrite = canWriteProgetto(proj);
+  const ownerPrefix = !isOwn ? `<div class="proj-owner-prefix">${esc(owner?.nome||'')} ${esc(owner?.cognome||'')}</div>` : '';
+  const padLeft = indent===3 ? '64px' : '48px';
+
+  let taskHtml = '';
+  if(isExpProj){
+    taskHtml = buildTasksRow(tasks, proj, canWrite);
+  }
+
+  // stato badge colore
+  const statiColor = {aperto:'var(--g200)',in_corso:'var(--yellow)',completato:'var(--verde)',sospeso:'var(--orange)',annullato:'var(--g300)'};
+  const sc = statiColor[proj.stato]||'var(--g200)';
+
+  return `<tr class="acc-row-proj" onclick="toggleAcc('proj_${proj.id}')">
+    <td class="col-label">
+      <div class="proj-label" style="padding-left:${padLeft}">
+        <span style="width:8px;height:8px;border-radius:50%;background:${sc};flex-shrink:0;display:inline-block"></span>
+        <div style="flex:1;min-width:0;">
+          ${ownerPrefix}
+          <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(proj.nome)}">${esc(proj.nome)}</div>
+          <div class="proj-meta">${tasks.length} task</div>
+        </div>
+        ${canWrite?`<button class="add-task-btn" title="Nuovo task" onclick="event.stopPropagation();openTaskModal(null,'${proj.id}')">+</button>`:''}
+        <button class="act-btn" style="font-size:10px;padding:2px 6px;" onclick="event.stopPropagation();openProgettoModal('${proj.id}')" title="Modifica progetto">✏️</button>
+        <button class="act-btn" style="font-size:10px;padding:2px 6px;" onclick="event.stopPropagation();openPermessiModal('${proj.id}')" title="Permessi">🔒</button>
+        <span class="acc-chevron ${isExpProj?'open':''}">▶</span>
+      </div>
+    </td>
+    <td class="tasks-cell" id="tasks-cell-${proj.id}" 
+        ondragover="onDragOverCell(event,'${proj.id}')" 
+        ondrop="onDropCell(event,'${proj.id}')">
+      ${isExpProj ? taskHtml : ''}
+    </td>
+  </tr>`;
+}
+
+function buildTasksRow(tasks, proj, canWrite){
+  if(tasks.length===0 && !canWrite){
+    return `<div class="tasks-row"><span style="font-size:12px;color:var(--g300);">Nessun task</span></div>`;
+  }
+  let html = '<div class="tasks-row">';
+  for(let i=0;i<tasks.length;i++){
+    const t=tasks[i];
+    const isDep = S.dipendenze.some(d=>d.task_id===t.id); // ha dipendenze
+    const isBlocked = isDep && S.dipendenze.filter(d=>d.task_id===t.id).some(d=>{
+      const parent=S.task.find(tt=>tt.id===d.dipende_da_id);
+      return parent && parent.stato!=='completato';
+    });
+    if(i>0) html+=`<span class="task-dep-arrow">→</span>`;
+    html+=`<div class="task-card s-${t.stato}" 
+      data-task-id="${t.id}"
+      draggable="true"
+      ondragstart="onDragStartTask(event,'${t.id}')"
+      ondragend="onDragEndTask(event)"
+      ondragover="onDragOverTask(event,'${t.id}')"
+      ondrop="onDropTask(event,'${t.id}','${proj.id}')"
+      onclick="openTaskDetail('${t.id}')"
+      oncontextmenu="showCtxMenu(event,'${t.id}')">
+      ${isBlocked?'🔒 ':''}${esc(t.nome)}
+    </div>`;
+  }
+  if(canWrite) html+=`<button class="add-task-btn" onclick="openTaskModal(null,'${proj.id}')" title="Aggiungi task">+</button>`;
+  html+='</div>';
+  return html;
+}
+
+function toggleAcc(key){
+  S.boardExpanded[key] = S.boardExpanded[key]===false ? true : false;
+  const pb=$('pb'); renderBoard(pb);
+}
+
+// ============================================================
+// FILTRI
+// ============================================================
+let _fTid;
+function onFiltroTesto(v){
+  clearTimeout(_fTid);
+  _fTid=setTimeout(()=>{S.boardFilter.testo=v; goPage('board');},300);
+}
+function onFiltroCat(v){
+  S.boardFilter.categoria_id=v; S.boardFilter.sottocategoria_id='';
+  goPage('board');
+}
+function onFiltroSub(v){ S.boardFilter.sottocategoria_id=v; goPage('board'); }
+function resetFiltri(){ S.boardFilter={testo:'',categoria_id:'',sottocategoria_id:''}; goPage('board'); }
+
+// ============================================================
+// DRAG & DROP TASK
+// ============================================================
+let _dragTaskId = null;
+
+function initDragDrop(){
+  // già gestito con attributi HTML
+}
+
+function onDragStartTask(e, taskId){
+  _dragTaskId=taskId;
+  e.dataTransfer.effectAllowed='move';
+  e.dataTransfer.setData('taskId', taskId);
+  setTimeout(()=>e.target.classList.add('dragging'),0);
+}
+function onDragEndTask(e){
+  e.target.classList.remove('dragging');
+  document.querySelectorAll('.task-card').forEach(c=>c.classList.remove('drag-over-left'));
+  // rimuovi evidenziazione drop zone drawer
+  $('drawer-drop-zone').classList.remove('drag-over');
+}
+function onDragOverTask(e, targetTaskId){
+  if(!_dragTaskId || _dragTaskId===targetTaskId) return;
+  e.preventDefault();
+  document.querySelectorAll('.task-card').forEach(c=>c.classList.remove('drag-over-left'));
+  e.currentTarget.classList.add('drag-over-left');
+}
+function onDragOverCell(e, projId){
+  e.preventDefault();
+}
+async function onDropTask(e, targetTaskId, projId){
+  e.preventDefault();
+  if(!_dragTaskId || _dragTaskId===targetTaskId) return;
+  document.querySelectorAll('.task-card').forEach(c=>c.classList.remove('drag-over-left'));
+
+  const tasks = S.task.filter(t=>t.progetto_id===projId).sort((a,b)=>a.posizione-b.posizione);
+  const fromIdx = tasks.findIndex(t=>t.id===_dragTaskId);
+  const toIdx   = tasks.findIndex(t=>t.id===targetTaskId);
+  if(fromIdx<0||toIdx<0) return;
+
+  // Riordina localmente
+  const moved = tasks.splice(fromIdx,1)[0];
+  tasks.splice(toIdx,0,moved);
+
+  // Aggiorna posizioni su DB
+  await Promise.all(tasks.map((t,i)=>
+    db('PATCH',T('task'),{flt:`id=eq.${t.id}`,body:{posizione:i}})
+  ));
+  // Aggiorna stato locale
+  tasks.forEach((t,i)=>{ const tt=S.task.find(x=>x.id===t.id); if(tt) tt.posizione=i; });
+  renderBoard($('pb'));
+  _dragTaskId=null;
+}
+async function onDropCell(e, projId){
+  e.preventDefault();
+  // Drop su cella vuota → sposta in fondo
+  if(!_dragTaskId) return;
+  const task=S.task.find(t=>t.id===_dragTaskId);
+  if(!task||task.progetto_id===projId) return;
+  // Sposta task in un altro progetto (se canWrite su entrambi)
+  const targetProj = S.progetti.find(p=>p.id===projId);
+  if(!targetProj||!canWriteProgetto(targetProj)) return;
+  const maxPos = Math.max(-1,...S.task.filter(t=>t.progetto_id===projId).map(t=>t.posizione));
+  await db('PATCH',T('task'),{flt:`id=eq.${_dragTaskId}`,body:{progetto_id:projId,posizione:maxPos+1}});
+  task.progetto_id=projId; task.posizione=maxPos+1;
+  await writeLog('task_move','task',_dragTaskId,{da_progetto:task.progetto_id,a_progetto:projId});
+  toast('Task spostato'); renderBoard($('pb'));
+  _dragTaskId=null;
+}
+
+// ============================================================
+// CONTEXT MENU
+// ============================================================
+function showCtxMenu(e, taskId){
+  e.preventDefault(); e.stopPropagation();
+  S.ctxTask = S.task.find(t=>t.id===taskId);
+  const menu=$('ctx-menu');
+  menu.style.left=Math.min(e.clientX, window.innerWidth-200)+'px';
+  menu.style.top=Math.min(e.clientY, window.innerHeight-200)+'px';
+  menu.classList.add('show');
+}
+
+document.addEventListener('click',()=>$('ctx-menu').classList.remove('show'));
+
+document.querySelectorAll && document.addEventListener('DOMContentLoaded',()=>{
+  $('ctx-menu').querySelectorAll('.ctx-item[data-stato]').forEach(item=>{
+    item.addEventListener('click', async e=>{
+      e.stopPropagation();
+      if(!S.ctxTask) return;
+      const oldStato=S.ctxTask.stato;
+      const newStato=item.dataset.stato;
+      await db('PATCH',T('task'),{flt:`id=eq.${S.ctxTask.id}`,body:{stato:newStato}});
+      await writeLog('task_stato','task',S.ctxTask.id,{da:oldStato,a:newStato});
+      S.ctxTask.stato=newStato;
+      renderBoard($('pb'));
+      toast(`Stato → ${newStato}`,'ok');
+    });
+  });
+  $('ctx-detail').addEventListener('click',e=>{e.stopPropagation();if(S.ctxTask) openTaskDetail(S.ctxTask.id);});
+  $('ctx-delete').addEventListener('click',async e=>{
+    e.stopPropagation();
+    if(!S.ctxTask) return;
+    const ok=await openConf('Elimina task',`Eliminare "${S.ctxTask.nome}"? L'operazione non è reversibile.`);
+    if(!ok) return;
+    await db('DELETE',T('task'),{flt:`id=eq.${S.ctxTask.id}`});
+    await writeLog('task_delete','task',S.ctxTask.id,{nome:S.ctxTask.nome});
+    S.task=S.task.filter(t=>t.id!==S.ctxTask.id);
+    S.ctxTask=null; renderBoard($('pb')); toast('Task eliminato','ok');
+  });
+});
+
+// ============================================================
+// MODALI TASK
+// ============================================================
+function openM(html){ 
+  $('modal-box').innerHTML=html; 
+  $('modal-overlay').classList.add('show'); 
+}
+function closeM(){ $('modal-overlay').classList.remove('show'); }
+$('modal-overlay') && document.addEventListener('DOMContentLoaded',()=>{
+  $('modal-overlay').addEventListener('click',e=>{if(e.target===$('modal-overlay')) closeM();});
+});
+
+// --- TASK DETAIL ---
+function openTaskDetail(taskId){
+  const t=S.task.find(x=>x.id===taskId);
+  if(!t) return;
+  const proj=S.progetti.find(p=>p.id===t.progetto_id);
+  const canWrite=proj&&canWriteProgetto(proj);
+  const deps=S.dipendenze.filter(d=>d.task_id===taskId);
+  const statiOpts=['aperto','in_corso','completato','bloccato','annullato'];
+  const priOpts=['bassa','normale','alta','critica'];
+  const assegnatoProfili=S.profili;
+
+  const depBadges=deps.map(d=>{
+    const pt=S.task.find(x=>x.id===d.dipende_da_id);
+    return pt?`<span class="dep-badge">${esc(pt.nome)}<span class="dep-remove" onclick="removeDep('${taskId}','${d.dipende_da_id}')">×</span></span>`:'';
+  }).join('');
+
+  // Task disponibili per nuove dipendenze (stesso progetto, non già dipendenza, non se stesso)
+  const availDeps=S.task.filter(x=>
+    x.progetto_id===t.progetto_id &&
+    x.id!==taskId &&
+    !deps.find(d=>d.dipende_da_id===x.id)
+  );
+
+  openM(`
+  <div class="modal-head">
+    <div class="modal-title">🔧 ${esc(t.nome)}</div>
+    <button class="modal-close" onclick="closeM()">×</button>
+  </div>
+
+  ${canWrite?`
+  <div class="mfield"><label>Nome task</label>
+    <input id="td-nome" value="${esc(t.nome)}"/>
+  </div>
+  <div class="mfield"><label>Descrizione / Note</label>
+    <textarea id="td-desc">${esc(t.descrizione||'')}</textarea>
+  </div>
+  <div class="mfield-row">
+    <div class="mfield"><label>Stato</label>
+      <select id="td-stato">${statiOpts.map(s=>`<option value="${s}"${t.stato===s?' selected':''}>${s.replace('_',' ')}</option>`).join('')}</select>
+    </div>
+    <div class="mfield"><label>Priorità</label>
+      <select id="td-prio">${priOpts.map(s=>`<option value="${s}"${t.priorita===s?' selected':''}>${s}</option>`).join('')}</select>
+    </div>
+  </div>
+  <div class="mfield-row">
+    <div class="mfield"><label>Data inizio</label>
+      <input type="date" id="td-ini" value="${t.data_inizio||''}"/>
+    </div>
+    <div class="mfield"><label>Scadenza</label>
+      <input type="date" id="td-scad" value="${t.data_scadenza||''}"/>
+    </div>
+  </div>
+  <div class="mfield-row">
+    <div class="mfield"><label>Stima ore</label>
+      <input type="number" id="td-stima" step="0.5" min="0" value="${t.stima_ore||''}"/>
+    </div>
+    <div class="mfield"><label>Ore effettive</label>
+      <input type="number" id="td-ore" step="0.5" min="0" value="${t.ore_effettive||''}"/>
+    </div>
+  </div>
+  <div class="mfield"><label>Assegnato a</label>
+    <select id="td-assegnato">
+      <option value="">— Non assegnato —</option>
+      ${assegnatoProfili.map(p=>`<option value="${p.id}"${t.assegnato_a===p.id?' selected':''}>${esc(p.nome+' '+p.cognome)}</option>`).join('')}
+    </select>
+  </div>
+  `:
+  `<div style="background:var(--g50);border-radius:var(--rsm);padding:16px;margin-bottom:16px;font-size:13px;">
+    <div><b>Stato:</b> ${t.stato.replace('_',' ')}</div>
+    <div><b>Priorità:</b> ${t.priorita}</div>
+    ${t.data_scadenza?`<div><b>Scadenza:</b> ${fmt(t.data_scadenza)}</div>`:''}
+    ${t.descrizione?`<div style="margin-top:8px;color:var(--g500);">${esc(t.descrizione)}</div>`:''}
+  </div>`}
+
+  <div class="mfield">
+    <label>🔗 Dipende da (task che devono completarsi prima)</label>
+    <div class="task-dep-list">${depBadges||'<span style="font-size:12px;color:var(--g300)">Nessuna dipendenza</span>'}</div>
+    ${canWrite&&availDeps.length?`
+    <div class="dep-select-wrap">
+      <select id="dep-sel" class="filtro-sel" style="flex:1">
+        <option value="">— Aggiungi dipendenza —</option>
+        ${availDeps.map(x=>`<option value="${x.id}">${esc(x.nome)}</option>`).join('')}
+      </select>
+      <button class="mbtn mbtn-secondary" onclick="addDep('${taskId}')">+ Aggiungi</button>
+    </div>`:''}
+  </div>
+
+  <div class="modal-actions">
+    <button class="mbtn mbtn-secondary" onclick="closeM()">Chiudi</button>
+    ${canWrite?`<button class="mbtn mbtn-primary" onclick="saveTaskDetail('${taskId}')">💾 Salva</button>`:''}
+  </div>`);
+}
+
+async function saveTaskDetail(taskId){
+  const t=S.task.find(x=>x.id===taskId);
+  if(!t) return;
+  const updates={
+    nome:     $('td-nome').value.trim(),
+    descrizione: $('td-desc').value.trim(),
+    stato:    $('td-stato').value,
+    priorita: $('td-prio').value,
+    data_inizio:   $('td-ini').value||null,
+    data_scadenza: $('td-scad').value||null,
+    stima_ore:     $('td-stima').value?parseFloat($('td-stima').value):null,
+    ore_effettive: $('td-ore').value?parseFloat($('td-ore').value):null,
+    assegnato_a:   $('td-assegnato').value||null,
+  };
+  if(!updates.nome){toast('Nome obbligatorio','err');return;}
+  await db('PATCH',T('task'),{flt:`id=eq.${taskId}`,body:updates});
+  await writeLog('task_update','task',taskId,{updates});
+  Object.assign(t,updates);
+  closeM(); renderBoard($('pb')); toast('Task salvato','ok');
+}
+
+async function addDep(taskId){
+  const depId=$('dep-sel').value;
+  if(!depId) return;
+  // Check cicli semplice: depId non deve dipendere (direttamente) da taskId
+  if(S.dipendenze.some(d=>d.task_id===depId&&d.dipende_da_id===taskId)){
+    toast('Dipendenza circolare rilevata!','err'); return;
+  }
+  await db('POST',T('task_dipendenze'),{body:{task_id:taskId,dipende_da_id:depId}});
+  S.dipendenze.push({task_id:taskId,dipende_da_id:depId});
+  openTaskDetail(taskId); // re-render modal
+}
+
+async function removeDep(taskId,depId){
+  await db('DELETE',T('task_dipendenze'),{flt:`task_id=eq.${taskId}&dipende_da_id=eq.${depId}`});
+  S.dipendenze=S.dipendenze.filter(d=>!(d.task_id===taskId&&d.dipende_da_id===depId));
+  openTaskDetail(taskId);
+}
+
+// --- MODAL NUOVO/MODIFICA TASK ---
+function openTaskModal(taskId, progettoId){
+  const isNew=!taskId;
+  const t=taskId?S.task.find(x=>x.id===taskId):null;
+  const statiOpts=['aperto','in_corso','completato','bloccato','annullato'];
+  const priOpts=['bassa','normale','alta','critica'];
+
+  openM(`
+  <div class="modal-head">
+    <div class="modal-title">${isNew?'➕ Nuovo Task':'✏️ Modifica Task'}</div>
+    <button class="modal-close" onclick="closeM()">×</button>
+  </div>
+  <div class="mfield"><label>Nome task *</label>
+    <input id="tm-nome" value="${t?esc(t.nome):''}"/>
+  </div>
+  <div class="mfield"><label>Descrizione</label>
+    <textarea id="tm-desc">${t?esc(t.descrizione||''):''}</textarea>
+  </div>
+  <div class="mfield-row">
+    <div class="mfield"><label>Stato</label>
+      <select id="tm-stato">${statiOpts.map(s=>`<option value="${s}"${(t?.stato||'aperto')===s?' selected':''}>${s.replace('_',' ')}</option>`).join('')}</select>
+    </div>
+    <div class="mfield"><label>Priorità</label>
+      <select id="tm-prio">${priOpts.map(s=>`<option value="${s}"${(t?.priorita||'normale')===s?' selected':''}>${s}</option>`).join('')}</select>
+    </div>
+  </div>
+  <div class="mfield-row">
+    <div class="mfield"><label>Data inizio</label>
+      <input type="date" id="tm-ini" value="${t?.data_inizio||''}"/>
+    </div>
+    <div class="mfield"><label>Scadenza</label>
+      <input type="date" id="tm-scad" value="${t?.data_scadenza||''}"/>
+    </div>
+  </div>
+  <div class="mfield-row">
+    <div class="mfield"><label>Stima ore</label>
+      <input type="number" id="tm-stima" step="0.5" min="0" value="${t?.stima_ore||''}"/>
+    </div>
+    <div class="mfield"><label>Ore effettive</label>
+      <input type="number" id="tm-ore" step="0.5" min="0" value="${t?.ore_effettive||''}"/>
+    </div>
+  </div>
+  <div class="mfield"><label>Assegnato a</label>
+    <select id="tm-assegnato">
+      <option value="">— Non assegnato —</option>
+      ${S.profili.map(p=>`<option value="${p.id}"${t?.assegnato_a===p.id?' selected':''}>${esc(p.nome+' '+p.cognome)}</option>`).join('')}
+    </select>
+  </div>
+  <div class="modal-actions">
+    <button class="mbtn mbtn-secondary" onclick="closeM()">Annulla</button>
+    <button class="mbtn mbtn-primary" onclick="saveTask('${taskId||''}','${progettoId||t?.progetto_id||''}')">💾 Salva</button>
+  </div>`);
+}
+
+async function saveTask(taskId, progettoId){
+  const isNew=!taskId;
+  const nome=$('tm-nome').value.trim();
+  if(!nome){toast('Nome obbligatorio','err');return;}
+  const body={
+    progetto_id:  progettoId,
+    nome,
+    descrizione:  $('tm-desc').value.trim(),
+    stato:        $('tm-stato').value,
+    priorita:     $('tm-prio').value,
+    data_inizio:  $('tm-ini').value||null,
+    data_scadenza:$('tm-scad').value||null,
+    stima_ore:    $('tm-stima').value?parseFloat($('tm-stima').value):null,
+    ore_effettive:$('tm-ore').value?parseFloat($('tm-ore').value):null,
+    assegnato_a:  $('tm-assegnato').value||null,
+  };
+  if(isNew){
+    const maxPos=Math.max(-1,...S.task.filter(t=>t.progetto_id===progettoId).map(t=>t.posizione));
+    body.posizione=maxPos+1;
+    const [created]=await db('POST',T('task'),{body});
+    S.task.push(created);
+    await writeLog('task_create','task',created.id,{nome:created.nome,progetto_id:progettoId});
+    toast('Task creato','ok');
+  } else {
+    await db('PATCH',T('task'),{flt:`id=eq.${taskId}`,body});
+    const t=S.task.find(x=>x.id===taskId); if(t) Object.assign(t,body);
+    await writeLog('task_update','task',taskId,{updates:body});
+    toast('Task aggiornato','ok');
+  }
+  closeM(); renderBoard($('pb'));
+}
+
+// ============================================================
+// MODALI PROGETTO
+// ============================================================
+function openProgettoModal(progettoId){
+  const isNew=!progettoId;
+  const p=progettoId?S.progetti.find(x=>x.id===progettoId):null;
+  const statiOpts=['aperto','in_corso','completato','sospeso','annullato'];
+  const priOpts=['bassa','normale','alta','critica'];
+  const myCats=S.categorie.filter(c=>c.utente_id===S.user.id);
+
+  openM(`
+  <div class="modal-head">
+    <div class="modal-title">${isNew?'➕ Nuovo Progetto':'✏️ Modifica Progetto'}</div>
+    <button class="modal-close" onclick="closeM()">×</button>
+  </div>
+  <div class="mfield"><label>Nome progetto *</label>
+    <input id="pm-nome" value="${p?esc(p.nome):''}"/>
+  </div>
+  <div class="mfield"><label>Descrizione</label>
+    <textarea id="pm-desc">${p?esc(p.descrizione||''):''}</textarea>
+  </div>
+  <div class="mfield-row">
+    <div class="mfield"><label>Categoria</label>
+      <select id="pm-cat" onchange="onPmCatChange(this.value)">
+        <option value="">— Nessuna —</option>
+        ${myCats.map(c=>`<option value="${c.id}"${p?.categoria_id===c.id?' selected':''}>${esc(c.nome)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="mfield"><label>Sottocategoria</label>
+      <select id="pm-sub">
+        <option value="">— Nessuna —</option>
+        ${p?.categoria_id?S.sottocategorie.filter(s=>s.categoria_id===p.categoria_id).map(s=>`<option value="${s.id}"${p?.sottocategoria_id===s.id?' selected':''}>${esc(s.nome)}</option>`).join(''):''}
+      </select>
+    </div>
+  </div>
+  <div class="mfield-row">
+    <div class="mfield"><label>Stato</label>
+      <select id="pm-stato">${statiOpts.map(s=>`<option value="${s}"${(p?.stato||'aperto')===s?' selected':''}>${s.replace('_',' ')}</option>`).join('')}</select>
+    </div>
+    <div class="mfield"><label>Priorità</label>
+      <select id="pm-prio">${priOpts.map(s=>`<option value="${s}"${(p?.priorita||'normale')===s?' selected':''}>${s}</option>`).join('')}</select>
+    </div>
+  </div>
+  <div class="mfield-row">
+    <div class="mfield"><label>Data inizio</label>
+      <input type="date" id="pm-ini" value="${p?.data_inizio||''}"/>
+    </div>
+    <div class="mfield"><label>Scadenza</label>
+      <input type="date" id="pm-scad" value="${p?.data_scadenza||''}"/>
+    </div>
+  </div>
+  <div class="mfield"><label>Colore</label>
+    <input type="color" id="pm-colore" value="${p?.colore||'#9DBF60'}" style="height:38px;padding:2px 6px;"/>
+  </div>
+  <div class="modal-actions">
+    ${!isNew&&isOwner(p)?`<button class="mbtn mbtn-danger" onclick="deleteProgetto('${progettoId}')">🗑️ Elimina</button>`:''}
+    <button class="mbtn mbtn-secondary" onclick="closeM()">Annulla</button>
+    <button class="mbtn mbtn-primary" onclick="saveProgetto('${progettoId||''}')">💾 Salva</button>
+  </div>`);
+}
+
+function onPmCatChange(catId){
+  const sub=$('pm-sub'); if(!sub) return;
+  const subs=S.sottocategorie.filter(s=>s.categoria_id===catId);
+  sub.innerHTML=`<option value="">— Nessuna —</option>`+subs.map(s=>`<option value="${s.id}">${esc(s.nome)}</option>`).join('');
+}
+
+async function saveProgetto(progettoId){
+  const isNew=!progettoId;
+  const nome=$('pm-nome').value.trim();
+  if(!nome){toast('Nome obbligatorio','err');return;}
+  const body={
+    nome,
+    descrizione: $('pm-desc').value.trim(),
+    categoria_id: $('pm-cat').value||null,
+    sottocategoria_id: $('pm-sub').value||null,
+    stato: $('pm-stato').value,
+    priorita: $('pm-prio').value,
+    data_inizio: $('pm-ini').value||null,
+    data_scadenza: $('pm-scad').value||null,
+    colore: $('pm-colore').value,
+  };
+  if(isNew){
+    body.utente_id=S.user.id;
+    const maxPos=Math.max(-1,...S.progetti.map(p=>p.ordine));
+    body.ordine=maxPos+1;
+    const [created]=await db('POST',T('progetti'),{body});
+    S.progetti.push(created);
+    await writeLog('progetto_create','progetto',created.id,{nome:created.nome});
+    toast('Progetto creato','ok');
+  } else {
+    await db('PATCH',T('progetti'),{flt:`id=eq.${progettoId}`,body});
+    const p=S.progetti.find(x=>x.id===progettoId); if(p) Object.assign(p,body);
+    await writeLog('progetto_update','progetto',progettoId,{updates:body});
+    toast('Progetto aggiornato','ok');
+  }
+  closeM(); renderBoard($('pb'));
+}
+
+async function deleteProgetto(progettoId){
+  const ok=await openConf('Elimina progetto','Eliminare il progetto e tutti i suoi task? Operazione irreversibile.');
+  if(!ok) return;
+  await db('DELETE',T('progetti'),{flt:`id=eq.${progettoId}`});
+  await writeLog('progetto_delete','progetto',progettoId,{});
+  S.task=S.task.filter(t=>t.progetto_id!==progettoId);
+  S.progetti=S.progetti.filter(p=>p.id!==progettoId);
+  closeM(); renderBoard($('pb')); toast('Progetto eliminato','ok');
+}
+
+// ============================================================
+// MODALI CATEGORIA / SOTTOCATEGORIA
+// ============================================================
+function openCatModal(catId){
+  const isNew=!catId;
+  const c=catId?S.categorie.find(x=>x.id===catId):null;
+  openM(`
+  <div class="modal-head">
+    <div class="modal-title">${isNew?'➕ Nuova Categoria':'✏️ Modifica Categoria'}</div>
+    <button class="modal-close" onclick="closeM()">×</button>
+  </div>
+  <div class="mfield"><label>Nome *</label><input id="cm-nome" value="${c?esc(c.nome):''}"/></div>
+  <div class="mfield"><label>Colore</label>
+    <input type="color" id="cm-colore" value="${c?.colore||'#9DBF60'}" style="height:38px;padding:2px 6px;"/>
+  </div>
+  <div class="modal-actions">
+    ${!isNew?`<button class="mbtn mbtn-danger" onclick="deleteCat('${catId}')">🗑️ Elimina</button>`:''}
+    <button class="mbtn mbtn-secondary" onclick="closeM()">Annulla</button>
+    <button class="mbtn mbtn-primary" onclick="saveCat('${catId||''}')">💾 Salva</button>
+  </div>`);
+}
+
+async function saveCat(catId){
+  const nome=$('cm-nome').value.trim();
+  if(!nome){toast('Nome obbligatorio','err');return;}
+  const body={nome,colore:$('cm-colore').value};
+  if(!catId){
+    body.utente_id=S.user.id;
+    const [created]=await db('POST',T('categorie'),{body});
+    S.categorie.push(created); toast('Categoria creata','ok');
+  } else {
+    await db('PATCH',T('categorie'),{flt:`id=eq.${catId}`,body});
+    const c=S.categorie.find(x=>x.id===catId); if(c) Object.assign(c,body);
+    toast('Categoria aggiornata','ok');
+  }
+  closeM(); renderBoard($('pb'));
+}
+
+async function deleteCat(catId){
+  const ok=await openConf('Elimina categoria','Eliminare la categoria? Le sottocategorie e i progetti associati perderanno il collegamento.');
+  if(!ok) return;
+  await db('DELETE',T('categorie'),{flt:`id=eq.${catId}`});
+  S.sottocategorie=S.sottocategorie.filter(s=>s.categoria_id!==catId);
+  S.progetti.forEach(p=>{if(p.categoria_id===catId){p.categoria_id=null;p.sottocategoria_id=null;}});
+  S.categorie=S.categorie.filter(c=>c.id!==catId);
+  closeM(); renderBoard($('pb')); toast('Categoria eliminata','ok');
+}
+
+function openSubcatModal(catId, subId){
+  const isNew=!subId;
+  const s=subId?S.sottocategorie.find(x=>x.id===subId):null;
+  openM(`
+  <div class="modal-head">
+    <div class="modal-title">${isNew?'➕ Nuova Sottocategoria':'✏️ Modifica Sottocategoria'}</div>
+    <button class="modal-close" onclick="closeM()">×</button>
+  </div>
+  <div class="mfield"><label>Nome *</label><input id="scm-nome" value="${s?esc(s.nome):''}"/></div>
+  <div class="modal-actions">
+    ${!isNew?`<button class="mbtn mbtn-danger" onclick="deleteSubcat('${subId}')">🗑️ Elimina</button>`:''}
+    <button class="mbtn mbtn-secondary" onclick="closeM()">Annulla</button>
+    <button class="mbtn mbtn-primary" onclick="saveSubcat('${catId||s?.categoria_id||''}','${subId||''}')">💾 Salva</button>
+  </div>`);
+}
+
+async function saveSubcat(catId, subId){
+  const nome=$('scm-nome').value.trim();
+  if(!nome){toast('Nome obbligatorio','err');return;}
+  const body={nome,categoria_id:catId,utente_id:S.user.id};
+  if(!subId){
+    const [created]=await db('POST',T('sottocategorie'),{body});
+    S.sottocategorie.push(created); toast('Sottocategoria creata','ok');
+  } else {
+    await db('PATCH',T('sottocategorie'),{flt:`id=eq.${subId}`,body:{nome}});
+    const s=S.sottocategorie.find(x=>x.id===subId); if(s) s.nome=nome;
+    toast('Sottocategoria aggiornata','ok');
+  }
+  closeM(); renderBoard($('pb'));
+}
+
+async function deleteSubcat(subId){
+  const ok=await openConf('Elimina sottocategoria','I progetti associati perderanno il collegamento alla sottocategoria.');
+  if(!ok) return;
+  await db('DELETE',T('sottocategorie'),{flt:`id=eq.${subId}`});
+  S.progetti.forEach(p=>{if(p.sottocategoria_id===subId) p.sottocategoria_id=null;});
+  S.sottocategorie=S.sottocategorie.filter(s=>s.id!==subId);
+  closeM(); renderBoard($('pb')); toast('Sottocategoria eliminata','ok');
+}
+
+// ============================================================
+// MODAL PERMESSI
+// ============================================================
+function openPermessiModal(progettoId){
+  const proj=S.progetti.find(p=>p.id===progettoId);
+  if(!proj||!isOwner(proj)){toast('Non autorizzato','err');return;}
+  const perms=S.permessi.filter(p=>p.progetto_id===progettoId);
+  // Profili che non hanno già un permesso e non sono il proprietario
+  const available=S.profili.filter(p=>
+    p.id!==proj.utente_id &&
+    !perms.find(x=>x.utente_id===p.id) &&
+    p.attivo
+  );
+
+  const permItems=perms.map(pe=>{
+    const pr=profiloById(pe.utente_id);
+    return `<div class="perm-item">
+      <div class="perm-name">${esc(pr?.nome||'')} ${esc(pr?.cognome||'')}</div>
+      <span class="perm-level ${pe.livello}">${pe.livello==='read'?'👁 Lettura':'✏️ Lettura+Scrittura'}</span>
+      <button class="act-btn" onclick="togglePermLevel('${pe.progetto_id}','${pe.utente_id}','${pe.livello}')">Cambia</button>
+      <button class="act-btn" style="color:var(--red)" onclick="removePerm('${pe.progetto_id}','${pe.utente_id}')">✕</button>
+    </div>`;
+  }).join('');
+
+  openM(`
+  <div class="modal-head">
+    <div class="modal-title">🔒 Permessi — ${esc(proj.nome)}</div>
+    <button class="modal-close" onclick="closeM()">×</button>
+  </div>
+  <div style="margin-bottom:16px;">
+    ${perms.length?permItems:`<div style="color:var(--g300);font-size:13px;">Nessun permesso condiviso</div>`}
+  </div>
+  ${available.length?`
+  <div style="border-top:1px solid var(--g100);padding-top:16px;margin-top:8px;">
+    <div style="font-size:12px;font-weight:700;color:var(--g500);text-transform:uppercase;margin-bottom:10px;">Aggiungi accesso</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <select id="perm-uid" class="filtro-sel" style="flex:1">
+        <option value="">— Seleziona utente —</option>
+        ${available.map(p=>`<option value="${p.id}">${esc(p.nome+' '+p.cognome)}</option>`).join('')}
+      </select>
+      <select id="perm-livello" class="filtro-sel">
+        <option value="read">👁 Lettura</option>
+        <option value="write">✏️ Lettura+Scrittura</option>
+      </select>
+      <button class="mbtn mbtn-primary" onclick="addPerm('${progettoId}')">+ Aggiungi</button>
+    </div>
+  </div>`:''}
+  <div class="modal-actions">
+    <button class="mbtn mbtn-secondary" onclick="closeM()">Chiudi</button>
+  </div>`);
+}
+
+async function addPerm(progettoId){
+  const uid=$('perm-uid').value, liv=$('perm-livello').value;
+  if(!uid){toast('Seleziona un utente','err');return;}
+  const body={progetto_id:progettoId,utente_id:uid,livello:liv,concesso_da:S.user.id};
+  const [created]=await db('POST',T('permessi'),{body});
+  S.permessi.push(created);
+  await writeLog('permesso_grant','permesso',created.id,{progetto_id:progettoId,utente_id:uid,livello:liv});
+  toast('Accesso concesso','ok');
+  openPermessiModal(progettoId);
+}
+
+async function removePerm(progettoId,userId){
+  await db('DELETE',T('permessi'),{flt:`progetto_id=eq.${progettoId}&utente_id=eq.${userId}`});
+  S.permessi=S.permessi.filter(p=>!(p.progetto_id===progettoId&&p.utente_id===userId));
+  await writeLog('permesso_revoke','permesso',null,{progetto_id:progettoId,utente_id:userId});
+  toast('Accesso revocato','ok');
+  openPermessiModal(progettoId);
+}
+
+async function togglePermLevel(progettoId,userId,current){
+  const newLiv=current==='read'?'write':'read';
+  await db('PATCH',T('permessi'),{flt:`progetto_id=eq.${progettoId}&utente_id=eq.${userId}`,body:{livello:newLiv}});
+  const pe=S.permessi.find(p=>p.progetto_id===progettoId&&p.utente_id===userId);
+  if(pe) pe.livello=newLiv;
+  await writeLog('permesso_update','permesso',null,{progetto_id:progettoId,utente_id:userId,livello:newLiv});
+  toast(`Livello aggiornato → ${newLiv}`,'ok');
+  openPermessiModal(progettoId);
+}
+
+// ============================================================
+// DRAWER TASK VELOCI
+// ============================================================
+function initDrawer(){
+  S.drawerDate=today();
+  $('drawer-date').textContent=fmt(S.drawerDate);
+
+  $('drawer-toggle').addEventListener('click',()=>{
+    S.drawerOpen=!S.drawerOpen;
+    $('drawer').classList.toggle('open',S.drawerOpen);
+    $('drawer-toggle').classList.toggle('open',S.drawerOpen);
+  });
+
+  $('drawer-add-btn').addEventListener('click', addTaskVeloce);
+  $('drawer-add-input').addEventListener('keydown',e=>{if(e.key==='Enter') addTaskVeloce();});
+
+  // Drop zone nel drawer
+  const dz=$('drawer-drop-zone');
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over');});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
+  dz.addEventListener('drop',async e=>{
+    e.preventDefault(); dz.classList.remove('drag-over');
+    const taskId=e.dataTransfer.getData('taskId');
+    if(!taskId) return;
+    const t=S.task.find(x=>x.id===taskId);
+    if(!t) return;
+    const proj=S.progetti.find(p=>p.id===t.progetto_id);
+    const body={
+      utente_id:S.user.id,
+      testo:t.nome,
+      progetto_id:t.progetto_id||null,
+      task_id:taskId,
+      data_riferimento:today(),
+      completato:false,
+      ordine:S.taskVeloci.length,
+    };
+    const [created]=await db('POST',T('task_veloci'),{body});
+    S.taskVeloci.push(created);
+    renderDrawer();
+    toast(`Task aggiunto alle note: ${t.nome}`,'ok');
+  });
+
+  renderDrawer();
+}
+
+function renderDrawer(){
+  const list=$('drawer-list'); if(!list) return;
+  if(!S.taskVeloci.length){
+    list.innerHTML=`<div style="padding:20px;text-align:center;font-size:12px;color:var(--g300);">Nessun task per oggi</div>`;
+    return;
+  }
+  list.innerHTML=S.taskVeloci.map(tv=>{
+    const projNome=tv.progetto_id?(S.progetti.find(p=>p.id===tv.progetto_id)?.nome||''):'';
+    return `<div class="tv-item${tv.completato?' done':''}" id="tv-${tv.id}">
+      <div class="tv-check${tv.completato?' checked':''}" onclick="toggleTaskVeloce('${tv.id}')">
+        ${tv.completato?'✓':''}
+      </div>
+      <div class="tv-text">${esc(tv.testo)}</div>
+      ${projNome?`<div class="tv-link" title="${esc(projNome)}">📋 ${esc(projNome)}</div>`:''}
+      <span class="tv-del" onclick="deleteTaskVeloce('${tv.id}')">✕</span>
+    </div>`;
+  }).join('');
+}
+
+async function addTaskVeloce(){
+  const inp=$('drawer-add-input');
+  const testo=inp.value.trim();
+  if(!testo) return;
+  const body={
+    utente_id:S.user.id,testo,completato:false,
+    data_riferimento:today(),ordine:S.taskVeloci.length,
+  };
+  const [created]=await db('POST',T('task_veloci'),{body});
+  S.taskVeloci.push(created); inp.value=''; renderDrawer();
+}
+
+async function toggleTaskVeloce(id){
+  const tv=S.taskVeloci.find(x=>x.id===id); if(!tv) return;
+  tv.completato=!tv.completato;
+  await db('PATCH',T('task_veloci'),{flt:`id=eq.${id}`,body:{completato:tv.completato}});
+  renderDrawer();
+}
+
+async function deleteTaskVeloce(id){
+  await db('DELETE',T('task_veloci'),{flt:`id=eq.${id}`});
+  S.taskVeloci=S.taskVeloci.filter(x=>x.id!==id); renderDrawer();
+}
+
+// ============================================================
+// PAGINA UTENTI
+// ============================================================
+function renderUtenti(pb){
+  if(S.user.ruolo!=='admin'){pb.innerHTML='<div class="empty-state"><div class="es-icon">🔒</div><p>Accesso riservato agli amministratori</p></div>';return;}
+  pb.innerHTML=`
+  <div class="pg-head">
+    <div><div class="pg-title">👥 Gestione Utenti</div></div>
+    <button class="mbtn mbtn-primary" onclick="openUtenteModal()">+ Nuovo utente</button>
+  </div>
+  <div style="background:#fff;border-radius:var(--r);border:1px solid var(--g200);box-shadow:var(--sh-sm);overflow:hidden;">
+  <table class="utenti-table">
+    <thead><tr>
+      <th>Nome</th><th>Email</th><th>Ruolo</th><th>Stato</th><th>Azioni</th>
+    </tr></thead>
+    <tbody>
+    ${S.profili.map(p=>`
+      <tr>
+        <td><b>${esc(p.nome)} ${esc(p.cognome)}</b></td>
+        <td style="color:var(--g500)">${esc(p.email)}</td>
+        <td><span class="role-badge ${p.ruolo}">${p.ruolo}</span></td>
+        <td><span class="stato-badge ${p.attivo?'attivo':'inattivo'}">${p.attivo?'Attivo':'Inattivo'}</span></td>
+        <td><button class="act-btn" onclick="openUtenteModal('${p.id}')">✏️ Modifica</button></td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+  </div>`;
+}
+
+function openUtenteModal(userId){
+  const isNew=!userId;
+  const u=userId?S.profili.find(p=>p.id===userId):null;
+  const ruoliOpts=['admin','utente'];
+  const attivoChecked=u?u.attivo:true;
+
+  openM(`
+  <div class="modal-head">
+    <div class="modal-title">${isNew?'➕ Nuovo Utente':'✏️ Modifica Utente'}</div>
+    <button class="modal-close" onclick="closeM()">×</button>
+  </div>
+  <div class="mfield-row">
+    <div class="mfield"><label>Nome *</label><input id="um-nome" value="${u?esc(u.nome):''}"/></div>
+    <div class="mfield"><label>Cognome *</label><input id="um-cognome" value="${u?esc(u.cognome):''}"/></div>
+  </div>
+  <div class="mfield">
+    <label>E-Mail *</label>
+    <input type="email" id="um-email" value="${u?esc(u.email):''}" ${!isNew?'disabled':''}/>
+    ${isNew?`<div id="um-email-info" style="display:none"></div>`:''}
+  </div>
+  <div class="mfield" id="um-pwd-wrap" ${!isNew?'style="display:none"':''}>
+    <label>${isNew?'Password *':'Nuova password'}</label>
+    <input type="password" id="um-pwd" placeholder="••••••••" ${!isNew?'':''}/>
+    ${!isNew?`<div class="mfield-hint" style="color:var(--orange)">⚠️ La nuova password sarà valida per tutti i tool Medical Group</div>`:''}
+  </div>
+  <div class="mfield"><label>Ruolo</label>
+    <select id="um-ruolo">${ruoliOpts.map(r=>`<option value="${r}"${(u?.ruolo||'utente')===r?' selected':''}>${r}</option>`).join('')}</select>
+  </div>
+  <div class="mfield">
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:500">
+      <span style="position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0;">
+        <input type="checkbox" id="um-attivo" ${attivoChecked?'checked':''} style="opacity:0;width:0;height:0;position:absolute"/>
+        <span id="um-attivo-track" style="position:absolute;inset:0;border-radius:11px;background:${attivoChecked?'var(--verde)':'var(--g300)'};transition:background .2s;cursor:pointer"></span>
+        <span id="um-attivo-knob" style="position:absolute;top:3px;left:${attivoChecked?21:3}px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .2s"></span>
+      </span>
+      Utente attivo
+    </label>
+  </div>
+  <div class="modal-actions">
+    ${!isNew?`<button class="mbtn mbtn-danger" onclick="deleteUtenteProfile('${userId}')">🗑️ Rimuovi dal tool</button>`:''}
+    <button class="mbtn mbtn-secondary" onclick="closeM()">Annulla</button>
+    <button class="mbtn mbtn-primary" onclick="saveUtente('${userId||''}')">💾 Salva</button>
+  </div>`);
+
+  // toggle attivo
+  const cb=$('um-attivo'),track=$('um-attivo-track'),knob=$('um-attivo-knob');
+  cb.addEventListener('change',()=>{
+    track.style.background=cb.checked?'var(--verde)':'var(--g300)';
+    knob.style.left=cb.checked?'21px':'3px';
+  });
+
+  // check email live (solo nuovo utente)
+  if(isNew){
+    const emailEl=$('um-email'),infoEl=$('um-email-info'),pwdWrap=$('um-pwd-wrap');
+    let debTimer=null;
+    const doCheck=()=>checkEmailLive(emailEl,infoEl,pwdWrap,'progetti-manage-user');
+    emailEl.addEventListener('blur',doCheck);
+    emailEl.addEventListener('input',()=>{
+      clearTimeout(debTimer);
+      if(infoEl){infoEl.style.display='none';infoEl.dataset.exists='';}
+      if(emailEl.value.includes('@')&&emailEl.value.includes('.'))
+        debTimer=setTimeout(doCheck,600);
+    });
+  }
+  // mostra campo password in modifica
+  if(!isNew){
+    $('um-pwd-wrap').style.display='';
+    $('um-pwd').disabled=false;
+  }
+}
+
+async function checkEmailLive(inputEl,infoEl,pwdWrap,fnName){
+  const email=inputEl.value.trim();
+  if(infoEl){infoEl.style.display='none';infoEl.dataset.exists='';}
+  if(!email||!email.includes('@')||!email.includes('.')) return;
+  if(!infoEl) return;
+  infoEl.style.cssText='display:block;margin-top:6px;padding:6px 10px;border-radius:var(--rsm);font-size:12px;';
+  infoEl.textContent='Verifica in corso…';
+  try{
+    const res=await fetch(`${CFG.FN}/${fnName}`,{
+      method:'POST',
+      headers:{'Authorization':`Bearer ${S.token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({action:'check_email',email}),
+    });
+    const data=await res.json();
+    if(!data.ok){infoEl.textContent='Errore verifica: '+(data.error||'risposta non valida');infoEl.style.background='var(--red-light)';infoEl.style.color='var(--red)';return;}
+    infoEl.dataset.exists=data.exists?'true':'false';
+    if(data.exists){
+      infoEl.textContent='✓ Utente già presente — la password rimane la stessa impostata per gli altri tool';
+      infoEl.style.background='var(--green-light)';infoEl.style.color='var(--verde)';
+      if(pwdWrap){pwdWrap.style.display='none';const p=pwdWrap.querySelector('input[type=password]');if(p){p.value='';p.disabled=true;}}
+    } else {
+      infoEl.textContent='Nuovo utente — inserisci una password per creare l\'account';
+      infoEl.style.background='var(--blue-xlight)';infoEl.style.color='var(--navy)';
+      if(pwdWrap){pwdWrap.style.display='';const p=pwdWrap.querySelector('input[type=password]');if(p) p.disabled=false;}
+    }
+  }catch(e){infoEl.textContent='Errore di rete: '+e.message;infoEl.style.background='var(--red-light)';infoEl.style.color='var(--red)';}
+}
+
+async function saveUtente(userId){
+  const isNew=!userId;
+  const nome=$('um-nome').value.trim(),cognome=$('um-cognome').value.trim();
+  const email=isNew?$('um-email').value.trim():'';
+  const pwd=$('um-pwd').value;
+  const ruolo=$('um-ruolo').value;
+  const attivo=$('um-attivo').checked;
+  if(!nome||!cognome){toast('Nome e cognome obbligatori','err');return;}
+  if(isNew&&!email){toast('Email obbligatoria','err');return;}
+  const infoEl=$('um-email-info');
+  const emailExists=infoEl&&infoEl.dataset.exists==='true';
+  if(isNew&&!emailExists&&(!pwd||pwd.length<6)){toast('Password obbligatoria (min 6 caratteri)','err');return;}
+
+  const action=isNew?'create':'update';
+  const body={action,nome,cognome,ruolo,attivo};
+  if(isNew){body.email=email;if(!emailExists) body.password=pwd;}
+  else{body.user_id=userId;if(pwd&&pwd.length>=6) body.password=pwd;}
+
+  const res=await fn('progetti-manage-user',body);
+  if(!res.ok){toast('Errore: '+(res.error||'sconosciuto'),'err');return;}
+
+  if(isNew){
+    const [newP]=await db('GET',T('profili'),{flt:`id=eq.${res.user_id}`});
+    if(newP) S.profili.push(newP);
+  } else {
+    const p=S.profili.find(x=>x.id===userId);
+    if(p) Object.assign(p,{nome,cognome,ruolo,attivo});
+  }
+  closeM(); renderUtenti($('pb')); toast(isNew?'Utente creato':'Utente aggiornato','ok');
+}
+
+async function deleteUtenteProfile(userId){
+  if(userId===S.user.id){toast('Non puoi rimuovere te stesso','err');return;}
+  const ok=await openConf('Rimuovi utente','Rimuovere l\'utente dal tool Progetti? L\'account rimane attivo sugli altri tool.');
+  if(!ok) return;
+  const res=await fn('progetti-manage-user',{action:'delete_profile',user_id:userId});
+  if(!res.ok){toast('Errore: '+(res.error||'sconosciuto'),'err');return;}
+  S.profili=S.profili.filter(p=>p.id!==userId);
+  closeM(); renderUtenti($('pb')); toast('Utente rimosso dal tool','ok');
+}
+
+// ============================================================
+// PAGINA LOG
+// ============================================================
+async function renderLogPage(pb){
+  if(S.user.ruolo!=='admin'){pb.innerHTML='<div class="empty-state"><div class="es-icon">🔒</div><p>Accesso riservato agli amministratori</p></div>';return;}
+  pb.innerHTML=`<div class="pg-head"><div class="pg-title">📜 Log modifiche</div></div><div id="log-wrap"><div style="padding:20px;text-align:center;"><span class="spn" style="border-color:var(--g200);border-top-color:var(--verde);"></span></div></div>`;
+  await loadLog();
+  const wrap=$('log-wrap');
+  if(!S.log||!S.log.length){wrap.innerHTML='<div class="empty-state"><div class="es-icon">📭</div><p>Nessun log disponibile</p></div>';return;}
+  wrap.innerHTML=`<div style="background:#fff;border-radius:var(--r);border:1px solid var(--g200);box-shadow:var(--sh-sm);overflow:hidden;">
+  <table class="log-table">
+    <thead><tr><th>Data</th><th>Utente</th><th>Azione</th><th>Entità</th><th>Dettaglio</th></tr></thead>
+    <tbody>
+    ${S.log.map(l=>`
+      <tr>
+        <td style="white-space:nowrap;color:var(--g500)">${fmt(l.created_at)}</td>
+        <td>${l.utente_id?esc(profiloNome(l.utente_id)):'—'}</td>
+        <td><code style="font-size:11px;background:var(--g100);padding:2px 6px;border-radius:4px">${esc(l.azione)}</code></td>
+        <td>${esc(l.entita)}</td>
+        <td><div class="log-json" onclick="this.classList.toggle('expanded')">${esc(JSON.stringify(l.dettaglio,null,2))}</div></td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+  </div>`;
+}
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', async()=>{
+  const tl=$('tb-logo'); if(tl) tl.innerHTML=logoHTML(true);
+  const ll=$('login-logo'); if(ll) ll.innerHTML=logoHTML(false);
+
+  // Build version da GitHub
+  const lv=$('login-ver'),tv=$('tb-ver');
+  try{
+    const res=await fetch('https://api.github.com/repos/ictmedicalgroup-sudo/progetti/commits?per_page=1');
+    if(res.ok){
+      const[c]=await res.json();
+      const d=new Date(c.commit.committer.date);
+      const s='build '+d.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+      if(lv) lv.textContent=s; if(tv) tv.textContent=s;
+    }
+  }catch(e){}
+
+  // Enter su login
+  $('lpw').addEventListener('keydown',e=>{if(e.key==='Enter') doLogin();});
+  $('lem').addEventListener('keydown',e=>{if(e.key==='Enter') $('lpw').focus();});
+  $('lbtn').addEventListener('click', doLogin);
+  $('lout').addEventListener('click', doLogout);
+
+  // Modal overlay click
+  $('modal-overlay').addEventListener('click',e=>{if(e.target===$('modal-overlay')) closeM();});
+
+  // Context menu items
+  $('ctx-menu').querySelectorAll('.ctx-item[data-stato]').forEach(item=>{
+    item.addEventListener('click',async e=>{
+      e.stopPropagation();
+      if(!S.ctxTask) return;
+      const oldStato=S.ctxTask.stato, newStato=item.dataset.stato;
+      await db('PATCH',T('task'),{flt:`id=eq.${S.ctxTask.id}`,body:{stato:newStato}});
+      await writeLog('task_stato','task',S.ctxTask.id,{da:oldStato,a:newStato});
+      S.ctxTask.stato=newStato;
+      renderBoard($('pb')); toast(`Stato → ${newStato}`,'ok');
+    });
+  });
+  $('ctx-detail').addEventListener('click',e=>{e.stopPropagation();if(S.ctxTask) openTaskDetail(S.ctxTask.id);});
+  $('ctx-delete').addEventListener('click',async e=>{
+    e.stopPropagation();
+    if(!S.ctxTask) return;
+    const ok=await openConf('Elimina task',`Eliminare "${S.ctxTask.nome}"?`);
+    if(!ok) return;
+    await db('DELETE',T('task'),{flt:`id=eq.${S.ctxTask.id}`});
+    await writeLog('task_delete','task',S.ctxTask.id,{nome:S.ctxTask.nome});
+    S.task=S.task.filter(t=>t.id!==S.ctxTask.id);
+    S.ctxTask=null; renderBoard($('pb')); toast('Task eliminato','ok');
+  });
+});
+</script>
+</body>
+</html>
