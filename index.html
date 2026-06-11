@@ -659,7 +659,7 @@ function renderSidebar(){
   const isAdmin = S.user?.ruolo==='admin';
   $('tb-user').textContent = `${S.user.nome} ${S.user.cognome}`;
   $('tb-role').textContent = isAdmin ? 'Admin' : 'Utente';
-  const adminPages = ['utenti','log','categorie'];
+  const adminPages = ['utenti','log'];
   const isAdminPage = adminPages.includes(S.page);
   const mainNav = NAV.filter(n=>n.always&&!n.admin);
   let html = mainNav.map(n=>
