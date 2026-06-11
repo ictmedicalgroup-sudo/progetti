@@ -617,8 +617,24 @@ async function loadAll(){
   S.dipendenze=dipendenze||[]; S.taskVeloci=taskVeloci||[];
 }
 
-async function loadLog(){
-  S.log = await db('GET', T('log'), {ord:'created_at.desc', lim:'200'});
+async function loadLog(da, a, testo){
+  // Default: solo oggi
+  const oggi = today();
+  const dataDa = da || oggi;
+  const dataA  = a  || oggi;
+  // Supabase: gte/lte su timestamptz — aggiungiamo T00:00:00 e T23:59:59
+  let flt = `created_at=gte.${dataDa}T00:00:00&created_at=lte.${dataA}T23:59:59`;
+  let rows = await db('GET', T('log'), {ord:'created_at.desc', lim:'500', flt});
+  if(testo && testo.trim()){
+    const q = testo.trim().toLowerCase();
+    rows = rows.filter(l=>
+      (l.azione||'').toLowerCase().includes(q) ||
+      (l.entita||'').toLowerCase().includes(q) ||
+      profiloNome(l.utente_id).toLowerCase().includes(q) ||
+      JSON.stringify(l.dettaglio||{}).toLowerCase().includes(q)
+    );
+  }
+  S.log = rows;
 }
 
 // ============================================================
@@ -1322,11 +1338,7 @@ function openTaskDetail(taskId){
     ${t.descrizione?`<div style="margin-top:8px;color:var(--g500);">${esc(t.descrizione)}</div>`:''}
   </div>`}
 
-  <div class="mfield" style="background:var(--g50);border-radius:var(--rsm);padding:10px 14px;">
-    <div style="font-size:11px;font-weight:700;color:var(--g500);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">📋 Progetto</div>
-    <div style="font-size:13px;color:var(--g700);">${esc(proj?.nome||'—')}</div>
-    <div style="font-size:11px;color:var(--g300);margin-top:4px;">Le dipendenze si gestiscono trascinando i task nell'ordine desiderato sulla board</div>
-  </div>
+
 
   <div class="modal-actions">
     <button class="mbtn mbtn-secondary" onclick="closeM()">Chiudi</button>
@@ -1516,7 +1528,10 @@ function openProgettoModal(progettoId, preCatId, preSubId){
     </div>
   </div>
   <div class="mfield"><label>Colore</label>
-    <input type="color" id="pm-colore" value="${p?.colore||'#9DBF60'}" style="height:38px;padding:2px 6px;"/>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+      <span title="Verde" onclick="document.getElementById('pm-colore').value='#9DBF60';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#9DBF60;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Verde chiaro" onclick="document.getElementById('pm-colore').value='#D5E3B7';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#D5E3B7;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Grigio" onclick="document.getElementById('pm-colore').value='#77797A';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#77797A;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Grigio scuro" onclick="document.getElementById('pm-colore').value='#4A4C4D';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#4A4C4D;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Blu" onclick="document.getElementById('pm-colore').value='#5B8DB8';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#5B8DB8;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Blu scuro" onclick="document.getElementById('pm-colore').value='#3A6B8A';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#3A6B8A;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Azzurro" onclick="document.getElementById('pm-colore').value='#7BAFC4';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#7BAFC4;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Giallo" onclick="document.getElementById('pm-colore').value='#E8A838';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#E8A838;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Arancio" onclick="document.getElementById('pm-colore').value='#D4762A';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#D4762A;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Rosso" onclick="document.getElementById('pm-colore').value='#C0392B';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#C0392B;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Viola" onclick="document.getElementById('pm-colore').value='#8E6BAD';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#8E6BAD;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Verde acqua" onclick="document.getElementById('pm-colore').value='#5FAD8E';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#5FAD8E;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span>
+    </div>
+    <input type="color" id="pm-colore" value="${p?.colore||'#9DBF60'}" style="height:28px;padding:2px 4px;width:48px;vertical-align:middle;"/><span style="font-size:11px;color:var(--g500);margin-left:6px;">o scegli colore personalizzato</span>
   </div>
   <div class="modal-actions">
     ${!isNew&&isOwner(p)?`<button class="mbtn mbtn-danger" onclick="deleteProgetto('${progettoId}')">🗑️ Elimina</button>`:''}
@@ -1586,7 +1601,10 @@ function openCatModal(catId){
   </div>
   <div class="mfield"><label>Nome *</label><input id="cm-nome" value="${c?esc(c.nome):''}"/></div>
   <div class="mfield"><label>Colore</label>
-    <input type="color" id="cm-colore" value="${c?.colore||'#9DBF60'}" style="height:38px;padding:2px 6px;"/>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+      <span title="Verde" onclick="document.getElementById('cm-colore').value='#9DBF60';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#9DBF60;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Verde chiaro" onclick="document.getElementById('cm-colore').value='#D5E3B7';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#D5E3B7;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Grigio" onclick="document.getElementById('cm-colore').value='#77797A';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#77797A;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Grigio scuro" onclick="document.getElementById('cm-colore').value='#4A4C4D';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#4A4C4D;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Blu" onclick="document.getElementById('cm-colore').value='#5B8DB8';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#5B8DB8;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Blu scuro" onclick="document.getElementById('cm-colore').value='#3A6B8A';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#3A6B8A;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Azzurro" onclick="document.getElementById('cm-colore').value='#7BAFC4';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#7BAFC4;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Giallo" onclick="document.getElementById('cm-colore').value='#E8A838';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#E8A838;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Arancio" onclick="document.getElementById('cm-colore').value='#D4762A';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#D4762A;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Rosso" onclick="document.getElementById('cm-colore').value='#C0392B';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#C0392B;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Viola" onclick="document.getElementById('cm-colore').value='#8E6BAD';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#8E6BAD;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span><span title="Verde acqua" onclick="document.getElementById('cm-colore').value='#5FAD8E';this.parentNode.querySelectorAll('span').forEach(s=>s.style.outline='none');this.style.outline='2px solid var(--g700)';" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:#5FAD8E;cursor:pointer;border:1.5px solid rgba(0,0,0,.1);"></span>
+    </div>
+    <input type="color" id="cm-colore" value="${c?.colore||'#9DBF60'}" style="height:28px;padding:2px 4px;width:48px;vertical-align:middle;"/><span style="font-size:11px;color:var(--g500);margin-left:6px;">o scegli colore personalizzato</span>
   </div>
   <div class="modal-actions">
     ${!isNew?`<button class="mbtn mbtn-danger" onclick="deleteCat('${catId}')">🗑️ Elimina</button>`:''}
@@ -2094,27 +2112,96 @@ async function deleteUtenteProfile(userId){
 // ============================================================
 // PAGINA LOG
 // ============================================================
+// Stato filtri log (persistente nella sessione)
+const logFiltri = { da: '', a: '', testo: '' };
+
 async function renderLogPage(pb){
-  if(S.user.ruolo!=='admin'){pb.innerHTML='<div class="empty-state"><div class="es-icon">🔒</div><p>Accesso riservato agli amministratori</p></div>';return;}
-  pb.innerHTML=`<div class="pg-head"><div class="pg-title">Log modifiche</div></div><div id="log-wrap"><div style="padding:20px;text-align:center;"><span class="spn" style="border-color:var(--g200);border-top-color:var(--verde);"></span></div></div>`;
-  await loadLog();
-  const wrap=$('log-wrap');
-  if(!S.log||!S.log.length){wrap.innerHTML='<div class="empty-state"><div class="es-icon">📭</div><p>Nessun log disponibile</p></div>';return;}
-  wrap.innerHTML=`<div style="background:#fff;border-radius:var(--r);border:1px solid var(--g200);box-shadow:var(--sh-sm);overflow:hidden;">
+  if(S.user.ruolo!=='admin'){
+    pb.innerHTML='<div class="empty-state"><div class="es-icon">🔒</div><p>Accesso riservato agli amministratori</p></div>';
+    return;
+  }
+  // Imposta default date se ancora vuote
+  if(!logFiltri.da) logFiltri.da = today();
+  if(!logFiltri.a)  logFiltri.a  = today();
+
+  pb.innerHTML=`
+  <div class="pg-head">
+    <div><div class="pg-title">Log modifiche</div></div>
+  </div>
+  <div id="filtri-bar" style="margin-bottom:20px;">
+    <div class="filtro-group">
+      <label>Dal</label>
+      <input type="date" class="filtro-input" id="lf-da" value="${logFiltri.da}" style="width:150px;"/>
+    </div>
+    <div class="filtro-group">
+      <label>Al</label>
+      <input type="date" class="filtro-input" id="lf-a" value="${logFiltri.a}" style="width:150px;"/>
+    </div>
+    <div class="filtro-group">
+      <label>Cerca</label>
+      <input class="filtro-input" id="lf-testo" placeholder="utente, azione, dettaglio…" value="${esc(logFiltri.testo)}" style="width:220px;"/>
+    </div>
+    <button class="mbtn mbtn-primary" onclick="applyLogFiltri()" style="padding:7px 18px;">Filtra</button>
+    <button id="filtri-reset" onclick="resetLogFiltri()">✕ Reset</button>
+  </div>
+  <div id="log-wrap">
+    <div style="padding:20px;text-align:center;">
+      <span class="spn" style="border-color:var(--g200);border-top-color:var(--verde);width:20px;height:20px;display:inline-block;"></span>
+    </div>
+  </div>`;
+
+  // Enter su campo testo
+  $('lf-testo').addEventListener('keydown', e=>{ if(e.key==='Enter') applyLogFiltri(); });
+
+  await loadLog(logFiltri.da, logFiltri.a, logFiltri.testo);
+  renderLogTable();
+}
+
+function renderLogTable(){
+  const wrap=$('log-wrap'); if(!wrap) return;
+  if(!S.log||!S.log.length){
+    wrap.innerHTML='<div class="empty-state" style="padding:40px 0;"><p style="color:var(--g300)">Nessun log per il periodo selezionato</p></div>';
+    return;
+  }
+  wrap.innerHTML=`
+  <div style="margin-bottom:8px;font-size:12px;color:var(--g500);">${S.log.length} registrazion${S.log.length===1?'e':'i'}</div>
+  <div style="background:#fff;border-radius:var(--r);border:1px solid var(--g200);box-shadow:var(--sh-sm);overflow:hidden;">
   <table class="log-table">
-    <thead><tr><th>Data</th><th>Utente</th><th>Azione</th><th>Entità</th><th>Dettaglio</th></tr></thead>
+    <thead><tr>
+      <th>Data e ora</th><th>Utente</th><th>Azione</th><th>Entità</th><th>Dettaglio</th>
+    </tr></thead>
     <tbody>
-    ${S.log.map(l=>`
-      <tr>
-        <td style="white-space:nowrap;color:var(--g500)">${fmt(l.created_at)}</td>
-        <td>${l.utente_id?esc(profiloNome(l.utente_id)):'—'}</td>
+    ${S.log.map(l=>{
+      const dt = new Date(l.created_at);
+      const dataOra = dt.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'})
+                    + ' ' + dt.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      return `<tr>
+        <td style="white-space:nowrap;color:var(--g500);font-size:11.5px;">${dataOra}</td>
+        <td style="font-weight:600;">${l.utente_id?esc(profiloNome(l.utente_id)):'—'}</td>
         <td><code style="font-size:11px;background:var(--g100);padding:2px 6px;border-radius:4px">${esc(l.azione)}</code></td>
-        <td>${esc(l.entita)}</td>
+        <td style="color:var(--g500)">${esc(l.entita)}</td>
         <td><div class="log-json" onclick="this.classList.toggle('expanded')">${esc(JSON.stringify(l.dettaglio,null,2))}</div></td>
-      </tr>`).join('')}
+      </tr>`;
+    }).join('')}
     </tbody>
   </table>
   </div>`;
+}
+
+async function applyLogFiltri(){
+  const da=$('lf-da')?.value, a=$('lf-a')?.value, testo=$('lf-testo')?.value||'';
+  if(!da||!a){toast('Seleziona un intervallo di date','err');return;}
+  if(da>a){toast('La data iniziale deve essere precedente alla finale','err');return;}
+  logFiltri.da=da; logFiltri.a=a; logFiltri.testo=testo;
+  const wrap=$('log-wrap');
+  wrap.innerHTML='<div style="padding:20px;text-align:center;"><span class="spn" style="border-color:var(--g200);border-top-color:var(--verde);width:20px;height:20px;display:inline-block;"></span></div>';
+  await loadLog(da, a, testo);
+  renderLogTable();
+}
+
+function resetLogFiltri(){
+  logFiltri.da=today(); logFiltri.a=today(); logFiltri.testo='';
+  renderLogPage($('pb'));
 }
 
 // ============================================================
