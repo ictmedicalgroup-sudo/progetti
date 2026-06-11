@@ -194,7 +194,7 @@ body{background:var(--g50);color:var(--g900);}
 .acc-row-sub:hover .col-label{background:var(--g50);}
 .sub-label{
   display:flex;align-items:center;gap:8px;
-  padding:8px 16px 8px 34px;font-size:12px;font-weight:600;color:var(--g500);
+  padding:8px 16px 8px 0px;font-size:12px;font-weight:600;color:var(--g500);
   letter-spacing:.2px;
 }
 
@@ -205,7 +205,7 @@ body{background:var(--g50);color:var(--g900);}
 .acc-row-proj:hover .col-label{background:var(--g50);}
 .proj-label{
   display:flex;flex-direction:column;align-items:flex-start;
-  padding:7px 12px 7px 34px;font-size:13px;font-weight:600;color:var(--g900);
+  padding:7px 12px 7px 0px;font-size:13px;font-weight:600;color:var(--g900);
   width:100%;cursor:pointer;
 }
 .proj-label-top{display:flex;align-items:center;gap:6px;width:100%;}
@@ -932,9 +932,12 @@ function buildProgettoRow(proj, indent){
           <span style="color:var(--g200);font-size:10px;">|</span>
           <button class="act-btn" style="font-size:10px;padding:1px 6px;" onclick="event.stopPropagation();openProgettoModal('${proj.id}')" title="Modifica progetto">Modifica</button>
           <button class="act-btn" style="font-size:10px;padding:1px 6px;" onclick="event.stopPropagation();openPermessiModal('${proj.id}')" title="Permessi">Permessi</button>
-          ${canWrite?`<button class="act-btn" style="font-size:10px;padding:1px 6px;color:var(--verde);border-color:var(--verde);" onclick="event.stopPropagation();openTaskModal(null,'${proj.id}',0)" title="Nuovo task">+ Task</button>`:''}
         </div>
       </div>
+      ${canWrite?`<button class="add-task-btn" onclick="event.stopPropagation();openTaskModal(null,'${proj.id}',0)" title="Nuovo task"
+        style="position:absolute;right:-14px;top:50%;transform:translateY(-50%);z-index:25;
+               background:#fff;border:1.5px solid var(--verde);color:var(--verde);width:28px;height:28px;font-size:16px;
+               border-radius:50%;box-shadow:var(--sh-sm);">+</button>`:''}
     </td>
     <td class="tasks-cell" id="tasks-cell-${proj.id}" 
         ondragover="onDragOverCell(event,'${proj.id}')" 
