@@ -1190,6 +1190,34 @@ document.addEventListener('click', e=>{
 // ============================================================
 let _drag = null; // { taskId, projId, riga, posizione }
 
+// Gestori sulla cella task (necessari per permettere il drop sulla riga vuota della cella)
+function onDragOverCell(e, projId){
+  e.preventDefault();
+}
+async function onDropCell(e, projId){
+  e.preventDefault();
+  if(!_drag) return;
+  const draggedTask = S.task.find(t=>t.id===_drag.taskId);
+  if(!draggedTask) return;
+  const proj = S.progetti.find(p=>p.id===projId);
+  if(!proj || !canWriteProgetto(proj)) return;
+  // Drop su cella vuota: metti in fondo alla riga 0
+  const riga = 0;
+  const rowTasks = S.task
+    .filter(t=>t.progetto_id===projId && (t.riga??0)===riga && t.id!==_drag.taskId)
+    .sort((a,b)=>a.posizione-b.posizione);
+  const newPos = rowTasks.length;
+  draggedTask.riga = riga;
+  draggedTask.posizione = newPos;
+  draggedTask.progetto_id = projId;
+  rowTasks.push(draggedTask);
+  _drag = null;
+  renderBoard($('pb'));
+  Promise.all(rowTasks.map((t,i)=>
+    db('PATCH',T('task'),{flt:`id=eq.${t.id}`,body:{posizione:i,riga,progetto_id:projId}})
+  ));
+}
+
 function onDragStartTask(e, taskId, projId, riga){
   _drag = { taskId, projId: String(projId), riga: Number(riga) };
   e.dataTransfer.effectAllowed = 'move';
