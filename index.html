@@ -1058,7 +1058,7 @@ function buildProgettoRow(proj, indent, taskVisibili){
 
   let taskHtml = '';
   if(isExpProj){
-    taskHtml = buildTasksRow(tasks, proj, canWrite);
+    taskHtml = buildTasksRow(tasks, proj, canWrite, projNextRiga);
   }
 
   // stato badge colore
@@ -1095,7 +1095,8 @@ function buildProgettoRow(proj, indent, taskVisibili){
   </tr>`;
 }
 
-function buildTasksRow(tasks, proj, canWrite){
+function buildTasksRow(tasks, proj, canWrite, nextRiga){
+  nextRiga = nextRiga ?? (tasks.length > 0 ? Math.max(...tasks.map(t=>t.riga??0))+1 : 0);
   // Raggruppa task per riga (campo 'riga', default 0)
   const righe = {};
   for(const t of tasks){
