@@ -405,6 +405,17 @@ body{background:var(--g50);color:var(--g900);}
 
 /* ---- EMPTY STATE ---- */
 .empty-state{text-align:center;padding:60px 20px;color:var(--g300);}
+/* Board footer */
+#board-footer{
+  margin-top:16px;padding:12px 20px;
+  background:#fff;border:1px solid var(--g200);border-radius:var(--r);
+  box-shadow:var(--sh-sm);display:flex;align-items:center;gap:24px;flex-wrap:wrap;
+  /* padding extra in basso per dare spazio al context menu sull'ultima riga */
+  margin-bottom:80px;
+}
+.bf-stat{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--g500);}
+.bf-stat strong{font-size:14px;font-weight:700;color:var(--g700);}
+.bf-sep{width:1px;height:20px;background:var(--g200);}
 .empty-state .es-icon{font-size:48px;margin-bottom:12px;}
 .empty-state p{font-size:14px;}
 
@@ -901,7 +912,8 @@ function renderBoard(pb){
       <tbody id="board-tbody">
       </tbody>
     </table>
-  </div>`;
+  </div>
+  <div id="board-footer"></div>`;
 
   renderBoardRows(cats, progettiSenzaCat, progetti, taskVisibili);
 }
@@ -982,15 +994,49 @@ function renderBoardRows(cats, progettiSenzaCat, allProjFiltered, taskVisibili){
     tbody.innerHTML=`<tr><td colspan="2" style="padding:40px;text-align:center;color:var(--g300);font-size:14px;">
       Nessun progetto trovato. Prova a cambiare i filtri o crea un nuovo progetto.
     </td></tr>`;
+    renderBoardFooter([],[]);
     return;
   }
   tbody.innerHTML=rows;
+  renderBoardFooter(allProjFiltered, taskVisibili||S.task);
+}
+
+function renderBoardFooter(progettiVisibili, taskVisibili){
+  const footer=$('board-footer'); if(!footer) return;
+  const nCat  = S.categorie.filter(c=>c.utente_id===S.user.id).length;
+  const nSub  = S.sottocategorie.filter(s=>s.utente_id===S.user.id).length;
+  const nProj = S.progetti.length;
+  const nTask = S.task.length;
+  const nProjV = progettiVisibili.length;
+  const nTaskV = taskVisibili.filter(t=>progettiVisibili.some(p=>p.id===t.progetto_id)).length;
+  const nPrio  = S.task.filter(t=>t.is_prioritario && t.stato!=='completato' && t.stato!=='annullato').length;
+  const nComp  = S.task.filter(t=>t.stato==='completato').length;
+  const filtered = nProjV < nProj || nTaskV < nTask;
+  footer.innerHTML=`
+    <div class="bf-stat"><strong>${nCat}</strong> categor${nCat===1?'ia':'ie'}</div>
+    <div class="bf-sep"></div>
+    <div class="bf-stat"><strong>${nSub}</strong> sottocategor${nSub===1?'ia':'ie'}</div>
+    <div class="bf-sep"></div>
+    <div class="bf-stat"><strong>${filtered?nProjV+'/':''}${nProj}</strong> progett${nProj===1?'o':'i'}</div>
+    <div class="bf-sep"></div>
+    <div class="bf-stat"><strong>${filtered?nTaskV+'/':''}${nTask}</strong> task</div>
+    ${nPrio>0?`<div class="bf-sep"></div>
+    <div class="bf-stat" style="color:var(--orange);">
+      <span style="width:8px;height:8px;border-radius:50%;background:var(--orange);display:inline-block;margin-right:2px;"></span>
+      <strong style="color:var(--orange);">${nPrio}</strong>&nbsp;prioritar${nPrio===1?'io':'i'}
+    </div>`:''}
+    ${nComp>0?`<div class="bf-sep"></div>
+    <div class="bf-stat">
+      <strong style="color:var(--verde);">${nComp}</strong>&nbsp;completat${nComp===1?'o':'i'}
+    </div>`:''}
+  `;
 }
 
 function buildProgettoRow(proj, indent, taskVisibili){
   const isExpProj = S.boardExpanded['proj_'+proj.id] !== false;
   const allTasks = S.task.filter(t=>t.progetto_id===proj.id).sort((a,b)=>(a.riga??0)-(b.riga??0)||a.posizione-b.posizione);
   const tasks = (taskVisibili||S.task).filter(t=>t.progetto_id===proj.id).sort((a,b)=>(a.riga??0)-(b.riga??0)||a.posizione-b.posizione);
+  const projNextRiga = allTasks.length > 0 ? Math.max(...allTasks.map(t=>t.riga??0))+1 : 0;
   const owner = profiloById(proj.utente_id);
   const isOwn = proj.utente_id===S.user.id;
   const canWrite = canWriteProgetto(proj);
@@ -1022,7 +1068,7 @@ function buildProgettoRow(proj, indent, taskVisibili){
           <button class="act-btn" style="font-size:10px;padding:1px 6px;" onclick="event.stopPropagation();openPermessiModal('${proj.id}')" title="Permessi">Permessi</button>
         </div>
       </div>
-      ${canWrite?`<button class="add-task-btn" onclick="event.stopPropagation();openTaskModal(null,'${proj.id}',0)" title="Nuovo task"
+      ${canWrite?`<button class="add-task-btn" onclick="event.stopPropagation();openTaskModal(null,'${proj.id}',${projNextRiga})" title="Nuovo task in nuova riga"
         style="position:absolute;right:-14px;top:50%;transform:translateY(-50%);z-index:25;
                background:#fff;border:1.5px solid var(--verde);color:var(--verde);width:28px;height:28px;font-size:16px;
                border-radius:50%;box-shadow:var(--sh-sm);">+</button>`:''}
