@@ -489,7 +489,7 @@ body{background:var(--g50);color:var(--g900);}
   </div>
 
   <!-- DRAWER TASK VELOCI -->
-  <button id="drawer-toggle">☰ NOTE</button>
+  <button id="drawer-toggle">NOTE</button>
   <div id="drawer">
     <div id="drawer-head">
       <h3>Task del giorno</h3>
@@ -985,7 +985,6 @@ function renderBoardRows(cats, progettiSenzaCat, allProjFiltered, taskVisibili){
     return;
   }
   tbody.innerHTML=rows;
-  initDragDrop();
 }
 
 function buildProgettoRow(proj, indent, taskVisibili){
@@ -1159,6 +1158,7 @@ function clearMsCat(){
 }
 function refreshBoardOnly(){
   // Ricalcola e ridisegna solo le righe del board, lasciando intatta la filtri-bar
+  renderDrawer();
   const pb=$('pb'); if(!pb) return;
   const boardWrap=$('board-wrap');
   if(!boardWrap){ renderBoard(pb); return; }
@@ -1953,7 +1953,7 @@ function renderDrawer(){
 
   // Task prioritari dal board (non già presenti come task veloci con link)
   const tvLinkedIds = new Set(S.taskVeloci.filter(tv=>tv.task_id).map(tv=>tv.task_id));
-  const prioritari = S.task.filter(t=>t.is_prioritario && !tvLinkedIds.has(t.id) && t.stato!=='completato' && t.stato!=='annullato');
+  const prioritari = S.task.filter(t=>!!t.is_prioritario && !tvLinkedIds.has(t.id) && t.stato!=='completato' && t.stato!=='annullato');
   const prioHtml = prioritari.length ? `
     <div style="padding:8px 16px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--orange);">⚡ Prioritari</div>
     ${prioritari.map(t=>{
@@ -1969,6 +1969,14 @@ function renderDrawer(){
   list.innerHTML = isEmpty
     ? `<div style="padding:20px;text-align:center;font-size:12px;color:var(--g300);">Nessun task per oggi</div>`
     : tvHtml + prioHtml;
+  // Badge sul toggle: mostra contatore prioritari non completati
+  const toggle=$('drawer-toggle');
+  if(toggle){
+    const tot = S.taskVeloci.filter(tv=>!tv.completato).length + prioritari.length;
+    toggle.innerHTML = tot>0
+      ? `NOTE <span style="background:var(--orange);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px;">${tot}</span>`
+      : 'NOTE';
+  }
 }
 
 async function quickCompleteTask(taskId){
