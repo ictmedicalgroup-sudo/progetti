@@ -256,7 +256,36 @@ body{background:var(--g50);color:var(--g900);}
 .task-card.s-completato{background:var(--green-light);border-color:var(--verde);color:#3d5a14;}
 .task-card.s-bloccato{background:var(--red-light);border-color:var(--red);color:var(--red);}
 .task-card.s-annullato{background:var(--g100);border-color:var(--g200);color:var(--g300);text-decoration:line-through;}
-.task-dep-icon{font-size:10px;opacity:.7;}  /* lucchetto se bloccato da dipendenze */
+.task-dep-icon{font-size:10px;opacity:.7;}
+.task-flag{position:absolute;top:-5px;right:-5px;width:10px;height:10px;border-radius:50%;
+           background:var(--orange);border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+/* drawer task prioritari */
+.tv-item.prioritario .tv-text{font-weight:700;color:var(--g900);}
+.tv-item.prioritario::before{content:'';display:block;width:4px;border-radius:2px;
+  background:var(--orange);align-self:stretch;flex-shrink:0;margin-left:-6px;}
+.tv-item.prioritario{padding-left:10px;border-left:3px solid var(--orange);}
+/* multiselect dropdown categorie */
+.ms-wrap{position:relative;}
+.ms-trigger{min-width:180px;padding:7px 30px 7px 12px;border:1px solid var(--g200);border-radius:var(--rsm);
+  font-family:'Raleway',sans-serif;font-size:13px;color:var(--g700);background:#fff;cursor:pointer;
+  display:flex;align-items:center;justify-content:space-between;gap:6px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;}
+.ms-trigger::after{content:'▾';font-size:10px;color:var(--g500);flex-shrink:0;}
+.ms-dropdown{position:absolute;top:calc(100% + 4px);left:0;z-index:500;
+  background:#fff;border:1px solid var(--g200);border-radius:var(--r);
+  box-shadow:var(--sh-lg);min-width:220px;display:none;flex-direction:column;}
+.ms-dropdown.open{display:flex;}
+.ms-search{padding:8px 12px;border-bottom:1px solid var(--g100);}
+.ms-search input{width:100%;border:1px solid var(--g200);border-radius:var(--rsm);
+  padding:5px 10px;font-family:'Raleway',sans-serif;font-size:13px;outline:none;}
+.ms-search input:focus{border-color:var(--verde);}
+.ms-list{max-height:200px;overflow-y:auto;padding:4px 0;}
+.ms-item{display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;font-size:13px;color:var(--g700);}
+.ms-item:hover{background:var(--g50);}
+.ms-item input{accent-color:var(--verde);width:14px;height:14px;flex-shrink:0;cursor:pointer;}
+.ms-clear{padding:8px 14px;border-top:1px solid var(--g100);font-size:12px;color:var(--g500);
+  cursor:pointer;text-align:center;}
+.ms-clear:hover{color:var(--red);}
 /* Freccia dipendenza tra task */
 .task-dep-arrow{color:var(--g300);font-size:14px;flex-shrink:0;}
 
@@ -401,8 +430,8 @@ body{background:var(--g50);color:var(--g900);}
   <div class="ctx-item" data-stato="bloccato"><span class="ctx-dot" style="background:var(--red)"></span>Bloccato</div>
   <div class="ctx-item" data-stato="annullato"><span class="ctx-dot" style="background:var(--g300)"></span>Annullato</div>
   <div class="ctx-sep"></div>
-  <div class="ctx-item" id="ctx-detail">✏️ Dettaglio</div>
-  <div class="ctx-item" id="ctx-delete" style="color:var(--red)">🗑️ Elimina</div>
+  <div class="ctx-item" id="ctx-prio">⚡ Segna come prioritario</div>
+  <div class="ctx-item" id="ctx-delete" style="color:var(--red)">Elimina</div>
 </div>
 
 <!-- MODAL OVERLAY -->
@@ -503,7 +532,7 @@ const S = {
   log: [],
   page: 'board',
   // UI state
-  boardFilter: { testo: '', categoria_id: '', sottocategoria_id: '', hide_completati: false, hide_annullati: false },
+  boardFilter: { testo: '', categorie_ids: [], categoria_id: '', sottocategoria_id: '', hide_completati: false, hide_annullati: false, hide_non_prioritari: false },
   boardExpanded: {}, // { cat_id: bool, sub_id: bool, proj_id: bool }
   ctxTask: null,     // task corrente nel context menu
   drawerOpen: false,
@@ -778,22 +807,29 @@ function renderBoard(pb){
     progetti=progetti.filter(p=>p.sottocategoria_id===f.sottocategoria_id);
   }
 
-  // Filtro task per stato se flag attivi
+  // Filtro task per stato/priorità se flag attivi
   let taskVisibili = S.task;
-  if(f.hide_completati) taskVisibili = taskVisibili.filter(t=>t.stato!=='completato');
-  if(f.hide_annullati)  taskVisibili = taskVisibili.filter(t=>t.stato!=='annullato');
+  if(f.hide_completati)     taskVisibili = taskVisibili.filter(t=>t.stato!=='completato');
+  if(f.hide_annullati)      taskVisibili = taskVisibili.filter(t=>t.stato!=='annullato');
+  if(f.hide_non_prioritari) taskVisibili = taskVisibili.filter(t=>t.is_prioritario);
 
-  // Se filtro categoria attivo: mostra SOLO quella categoria
-  // Se no: tutte le proprie + quelle con progetti condivisi
+  // Filtro categorie multi-select
   const catUsed = new Set(progetti.map(p=>p.categoria_id).filter(Boolean));
   const myCatIds = new Set(S.categorie.filter(c=>c.utente_id===S.user.id).map(c=>c.id));
+  const activeCatIds = f.categorie_ids && f.categorie_ids.length > 0 ? new Set(f.categorie_ids) : null;
   let cats;
-  if(f.categoria_id){
-    cats = S.categorie.filter(c=>c.id===f.categoria_id);
+  if(activeCatIds){
+    cats = S.categorie.filter(c=>activeCatIds.has(c.id));
+    // filtra anche i progetti per categorie selezionate
+    progetti = progetti.filter(p=>p.categoria_id && activeCatIds.has(p.categoria_id));
   } else {
     cats = S.categorie.filter(c=>myCatIds.has(c.id)||catUsed.has(c.id));
   }
-  const progettiSenzaCat = f.categoria_id ? [] : progetti.filter(p=>!p.categoria_id);
+  const progettiSenzaCat = activeCatIds ? [] : progetti.filter(p=>!p.categoria_id);
+  // Filtro hide_non_prioritari
+  if(f.hide_non_prioritari) progetti = progetti.filter(p=>
+    S.task.some(t=>t.progetto_id===p.id && t.is_prioritario)
+  );
 
   // Categorie per il filtro (tutte)
   const myCats = S.categorie.filter(c=>c.utente_id===S.user.id);
@@ -813,21 +849,28 @@ function renderBoard(pb){
   <div id="filtri-bar">
     <div class="filtro-group">
       <label>🔍</label>
-      <input class="filtro-input" id="f-testo" placeholder="Cerca progetto o task…" value="${esc(f.testo)}" oninput="onFiltroTesto(this.value)" style="width:220px;"/>
+      <input class="filtro-input" id="f-testo" placeholder="Cerca progetto o task…" value="${esc(f.testo)}" oninput="onFiltroTesto(this.value)" style="width:200px;"/>
     </div>
     <div class="filtro-group">
-      <label>Categoria</label>
-      <select class="filtro-sel" id="f-cat" onchange="onFiltroCat(this.value)">
-        <option value="">Tutte</option>
-        ${myCats.map(c=>`<option value="${c.id}"${f.categoria_id===c.id?' selected':''}>${esc(c.nome)}</option>`).join('')}
-      </select>
-    </div>
-    <div class="filtro-group" id="f-sub-group" style="${f.categoria_id?'':'display:none'}">
-      <label>Sottocategoria</label>
-      <select class="filtro-sel" id="f-sub" onchange="onFiltroSub(this.value)">
-        <option value="">Tutte</option>
-        ${S.sottocategorie.filter(s=>s.categoria_id===f.categoria_id).map(s=>`<option value="${s.id}"${f.sottocategoria_id===s.id?' selected':''}>${esc(s.nome)}</option>`).join('')}
-      </select>
+      <label>Categorie</label>
+      <div class="ms-wrap" id="ms-cat-wrap">
+        <div class="ms-trigger" id="ms-cat-trigger" onclick="toggleMsCat(event)">
+          ${f.categorie_ids.length===0?'Tutte':f.categorie_ids.length+' selezionat'+( f.categorie_ids.length===1?'a':'e')}
+        </div>
+        <div class="ms-dropdown" id="ms-cat-dd">
+          <div class="ms-search"><input type="text" id="ms-cat-search" placeholder="Cerca categoria…" oninput="filterMsCat(this.value)" onclick="event.stopPropagation()"/></div>
+          <div class="ms-list" id="ms-cat-list">
+            ${myCats.map(c=>`
+            <label class="ms-item">
+              <input type="checkbox" value="${c.id}" ${f.categorie_ids.includes(c.id)?'checked':''}
+                onchange="onMsCatChange()" onclick="event.stopPropagation()"/>
+              <span style="width:10px;height:10px;border-radius:50%;background:${esc(c.colore)};flex-shrink:0;display:inline-block;"></span>
+              ${esc(c.nome)}
+            </label>`).join('')}
+          </div>
+          <div class="ms-clear" onclick="clearMsCat()">Deseleziona tutto</div>
+        </div>
+      </div>
     </div>
     <div class="filtro-group" style="gap:12px;">
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;font-size:12px;color:var(--g500);">
@@ -837,6 +880,10 @@ function renderBoard(pb){
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;font-size:12px;color:var(--g500);">
         <input type="checkbox" id="f-hide-ann" ${f.hide_annullati?'checked':''} onchange="onFiltroFlag('hide_annullati',this.checked)" style="accent-color:var(--verde);width:14px;height:14px;"/>
         Nascondi annullati
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;font-size:12px;color:var(--g500);">
+        <input type="checkbox" id="f-hide-nonprio" ${f.hide_non_prioritari?'checked':''} onchange="onFiltroFlag('hide_non_prioritari',this.checked)" style="accent-color:var(--orange);width:14px;height:14px;"/>
+        Solo prioritari
       </label>
     </div>
     <button id="filtri-reset" onclick="resetFiltri()">✕ Reset</button>
@@ -1020,7 +1067,9 @@ function buildTasksRow(tasks, proj, canWrite){
         ondragover="onDragOverTask(event,this,'${t.id}')"
         ondrop="onDropTask(event,'${t.id}','${proj.id}',${rk})"
         onclick="event.stopPropagation();openTaskDetail('${t.id}')"
-        oncontextmenu="showCtxMenu(event,'${t.id}')">
+        oncontextmenu="showCtxMenu(event,'${t.id}')"
+        style="position:relative;">
+        ${t.is_prioritario?'<span class="task-flag" title="Prioritario"></span>':''}
         ${esc(t.nome)}
       </div>`;
     }
@@ -1029,14 +1078,7 @@ function buildTasksRow(tasks, proj, canWrite){
   // Riga vuota per aggiunta task nuovi / drop su nuova riga
   if(canWrite){
     const nextRiga = righeKeys.length > 0 ? Math.max(...righeKeys)+1 : 0;
-    html += `<div class="tasks-row tasks-row-new"
-      data-proj-id="${proj.id}" data-riga="${nextRiga}"
-      ondragover="onDragOverRow(event,this,'${proj.id}',${nextRiga})"
-      ondrop="onDropRow(event,'${proj.id}',${nextRiga})"
-      ondragleave="onDragLeaveRow(this)">
-      <button class="add-task-btn" onclick="openTaskModal(null,'${proj.id}',${nextRiga})" title="Aggiungi task in nuova riga">+</button>
-      <span style="font-size:11px;color:var(--g300);margin-left:4px;">Nuova riga parallela</span>
-    </div>`;
+
     // Bottone + per aggiungere task all'ultima riga esistente
     if(righeKeys.length > 0){
       const lastRiga = Math.max(...righeKeys);
@@ -1077,7 +1119,44 @@ function onFiltroCat(v){
 }
 function onFiltroSub(v){ S.boardFilter.sottocategoria_id=v; goPage('board'); }
 function onFiltroFlag(key,val){ S.boardFilter[key]=val; goPage('board'); }
-function resetFiltri(){ S.boardFilter={testo:'',categoria_id:'',sottocategoria_id:'',hide_completati:false,hide_annullati:false}; goPage('board'); }
+function resetFiltri(){
+  S.boardFilter={testo:'',categorie_ids:[],categoria_id:'',sottocategoria_id:'',
+    hide_completati:false,hide_annullati:false,hide_non_prioritari:false};
+  goPage('board');
+}
+// Multiselect categorie
+function toggleMsCat(e){
+  e.stopPropagation();
+  const dd=$('ms-cat-dd'); if(!dd) return;
+  dd.classList.toggle('open');
+}
+function filterMsCat(q){
+  const list=$('ms-cat-list'); if(!list) return;
+  list.querySelectorAll('.ms-item').forEach(item=>{
+    const txt=item.textContent.toLowerCase();
+    item.style.display=txt.includes(q.toLowerCase())?'':'none';
+  });
+}
+function onMsCatChange(){
+  const checkboxes=$('ms-cat-list')?.querySelectorAll('input[type=checkbox]');
+  if(!checkboxes) return;
+  const ids=[...checkboxes].filter(c=>c.checked).map(c=>c.value);
+  S.boardFilter.categorie_ids=ids;
+  // Aggiorna label trigger
+  const trigger=$('ms-cat-trigger');
+  if(trigger) trigger.childNodes[0] && (trigger.innerHTML=
+    (ids.length===0?'Tutte':ids.length+' selezionat'+(ids.length===1?'a':'e'))+'<span style="font-size:10px;color:var(--g500);margin-left:4px;">▾</span>');
+  goPage('board');
+}
+function clearMsCat(){
+  S.boardFilter.categorie_ids=[];
+  goPage('board');
+}
+// Chiudi dropdown ms al click fuori
+document.addEventListener('click', e=>{
+  const dd=$('ms-cat-dd');
+  if(dd && !$('ms-cat-wrap')?.contains(e.target)) dd.classList.remove('open');
+});
 
 // ============================================================
 // DRAG & DROP TASK
@@ -1234,6 +1313,9 @@ function showCtxMenu(e, taskId){
   menu.style.left=Math.min(e.clientX, window.innerWidth-200)+'px';
   menu.style.top=Math.min(e.clientY, window.innerHeight-200)+'px';
   menu.classList.add('show');
+  // Aggiorna etichetta priorità
+  const prioItem=$('ctx-prio');
+  if(prioItem) prioItem.textContent = S.ctxTask?.is_prioritario ? '⚡ Rimuovi priorità' : '⚡ Segna come prioritario';
 }
 
 document.addEventListener('click',()=>$('ctx-menu').classList.remove('show'));
@@ -1252,7 +1334,16 @@ document.querySelectorAll && document.addEventListener('DOMContentLoaded',()=>{
       toast(`Stato → ${newStato}`,'ok');
     });
   });
-  $('ctx-detail').addEventListener('click',e=>{e.stopPropagation();if(S.ctxTask) openTaskDetail(S.ctxTask.id);});
+  $('ctx-prio').addEventListener('click',async e=>{
+    e.stopPropagation();
+    $('ctx-menu').classList.remove('show');
+    if(!S.ctxTask) return;
+    const newVal = !S.ctxTask.is_prioritario;
+    S.ctxTask.is_prioritario = newVal;
+    renderBoard($('pb')); renderDrawer();
+    db('PATCH',T('task'),{flt:`id=eq.${S.ctxTask.id}`,body:{is_prioritario:newVal}})
+      .then(()=>writeLog('task_priorita','task',S.ctxTask.id,{is_prioritario:newVal}));
+  });
   $('ctx-delete').addEventListener('click',async e=>{
     e.stopPropagation();
     if(!S.ctxTask) return;
@@ -1304,9 +1395,20 @@ function openTaskDetail(taskId){
     <div class="mfield"><label>Stato</label>
       <select id="td-stato">${statiOpts.map(s=>`<option value="${s}"${t.stato===s?' selected':''}>${s.replace('_',' ')}</option>`).join('')}</select>
     </div>
-    <div class="mfield"><label>Priorità</label>
+    <div class="mfield"><label>Priorità livello</label>
       <select id="td-prio">${priOpts.map(s=>`<option value="${s}"${t.priorita===s?' selected':''}>${s}</option>`).join('')}</select>
     </div>
+  </div>
+  <div class="mfield">
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:600;">
+      <span style="position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0;">
+        <input type="checkbox" id="td-prioritario" ${t.is_prioritario?'checked':''} style="opacity:0;width:0;height:0;position:absolute"
+          onchange="document.getElementById('td-prio-track').style.background=this.checked?'var(--orange)':'var(--g300)';document.getElementById('td-prio-knob').style.left=this.checked?'21px':'3px'"/>
+        <span id="td-prio-track" style="position:absolute;inset:0;border-radius:11px;background:${t.is_prioritario?'var(--orange)':'var(--g300)'};transition:background .2s;cursor:pointer;"></span>
+        <span id="td-prio-knob" style="position:absolute;top:3px;left:${t.is_prioritario?21:3}px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .2s;"></span>
+      </span>
+      ⚡ Segna come prioritario
+    </label>
   </div>
   <div class="mfield-row">
     <div class="mfield"><label>Data inizio</label>
@@ -1333,7 +1435,7 @@ function openTaskDetail(taskId){
   `:
   `<div style="background:var(--g50);border-radius:var(--rsm);padding:16px;margin-bottom:16px;font-size:13px;">
     <div><b>Stato:</b> ${t.stato.replace('_',' ')}</div>
-    <div><b>Priorità:</b> ${t.priorita}</div>
+    <div><b>Priorità:</b> ${t.priorita}${t.is_prioritario?' &nbsp;<span style="color:var(--orange);font-weight:700;">⚡ Prioritario</span>':''}</div>
     ${t.data_scadenza?`<div><b>Scadenza:</b> ${fmt(t.data_scadenza)}</div>`:''}
     ${t.descrizione?`<div style="margin-top:8px;color:var(--g500);">${esc(t.descrizione)}</div>`:''}
   </div>`}
@@ -1354,6 +1456,7 @@ async function saveTaskDetail(taskId){
     descrizione: $('td-desc').value.trim(),
     stato:    $('td-stato').value,
     priorita: $('td-prio').value,
+    is_prioritario: $('td-prioritario').checked,
     data_inizio:   $('td-ini').value||null,
     data_scadenza: $('td-scad').value||null,
     stima_ore:     $('td-stima').value?parseFloat($('td-stima').value):null,
@@ -1808,21 +1911,46 @@ function initDrawer(){
 
 function renderDrawer(){
   const list=$('drawer-list'); if(!list) return;
-  if(!S.taskVeloci.length){
-    list.innerHTML=`<div style="padding:20px;text-align:center;font-size:12px;color:var(--g300);">Nessun task per oggi</div>`;
-    return;
-  }
-  list.innerHTML=S.taskVeloci.map(tv=>{
+
+  // Task veloci del giorno
+  const tvHtml = S.taskVeloci.map(tv=>{
     const projNome=tv.progetto_id?(S.progetti.find(p=>p.id===tv.progetto_id)?.nome||''):'';
+    const linkedTask = tv.task_id ? S.task.find(t=>t.id===tv.task_id) : null;
     return `<div class="tv-item${tv.completato?' done':''}" id="tv-${tv.id}">
       <div class="tv-check${tv.completato?' checked':''}" onclick="toggleTaskVeloce('${tv.id}')">
         ${tv.completato?'✓':''}
       </div>
-      <div class="tv-text">${esc(tv.testo)}</div>
+      <div class="tv-text" ${linkedTask?`onclick="openTaskDetail('${linkedTask.id}')" style="cursor:pointer;" title="Apri task nel board"`:''}>${esc(tv.testo)}</div>
       ${projNome?`<div class="tv-link" title="${esc(projNome)}">📋 ${esc(projNome)}</div>`:''}
       <span class="tv-del" onclick="deleteTaskVeloce('${tv.id}')">✕</span>
     </div>`;
   }).join('');
+
+  // Task prioritari dal board (non già presenti come task veloci con link)
+  const tvLinkedIds = new Set(S.taskVeloci.filter(tv=>tv.task_id).map(tv=>tv.task_id));
+  const prioritari = S.task.filter(t=>t.is_prioritario && !tvLinkedIds.has(t.id) && t.stato!=='completato' && t.stato!=='annullato');
+  const prioHtml = prioritari.length ? `
+    <div style="padding:8px 16px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--orange);">⚡ Prioritari</div>
+    ${prioritari.map(t=>{
+      const proj=S.progetti.find(p=>p.id===t.progetto_id);
+      return `<div class="tv-item prioritario" onclick="openTaskDetail('${t.id}')" style="cursor:pointer;" title="Apri nel board">
+        <div class="tv-check" onclick="event.stopPropagation();quickCompleteTask('${t.id}')">·</div>
+        <div class="tv-text">${esc(t.nome)}</div>
+        ${proj?`<div class="tv-link" title="${esc(proj.nome)}">📋 ${esc(proj.nome)}</div>`:''}
+      </div>`;
+    }).join('')}` : '';
+
+  const isEmpty = !S.taskVeloci.length && !prioritari.length;
+  list.innerHTML = isEmpty
+    ? `<div style="padding:20px;text-align:center;font-size:12px;color:var(--g300);">Nessun task per oggi</div>`
+    : tvHtml + prioHtml;
+}
+
+async function quickCompleteTask(taskId){
+  const t=S.task.find(x=>x.id===taskId); if(!t) return;
+  t.stato='completato';
+  renderDrawer(); renderBoard($('pb'));
+  db('PATCH',T('task'),{flt:`id=eq.${taskId}`,body:{stato:'completato'}});
 }
 
 async function addTaskVeloce(){
@@ -2246,7 +2374,16 @@ document.addEventListener('DOMContentLoaded', async()=>{
         .then(()=>writeLog('task_stato','task',S.ctxTask.id,{da:oldStato,a:newStato}));
     });
   });
-  $('ctx-detail').addEventListener('click',e=>{e.stopPropagation();if(S.ctxTask) openTaskDetail(S.ctxTask.id);});
+  $('ctx-prio').addEventListener('click',async e=>{
+    e.stopPropagation();
+    $('ctx-menu').classList.remove('show');
+    if(!S.ctxTask) return;
+    const newVal = !S.ctxTask.is_prioritario;
+    S.ctxTask.is_prioritario = newVal;
+    renderBoard($('pb')); renderDrawer();
+    db('PATCH',T('task'),{flt:`id=eq.${S.ctxTask.id}`,body:{is_prioritario:newVal}})
+      .then(()=>writeLog('task_priorita','task',S.ctxTask.id,{is_prioritario:newVal}));
+  });
   $('ctx-delete').addEventListener('click',async e=>{
     e.stopPropagation();
     if(!S.ctxTask) return;
