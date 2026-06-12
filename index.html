@@ -1134,33 +1134,13 @@ function buildTasksRow(tasks, proj, canWrite, nextRiga){
     }
     html += '</div>';
   }
-  // Riga vuota per aggiunta task nuovi / drop su nuova riga
-  if(canWrite){
-    const nextRiga = righeKeys.length > 0 ? Math.max(...righeKeys)+1 : 0;
-
-    // Bottone + per aggiungere task all'ultima riga esistente
-    if(righeKeys.length > 0){
-      const lastRiga = Math.max(...righeKeys);
-      // Inietta + alla fine dell'ultima riga (approccio: aggiungi dopo il suo contenuto)
-      const marker = `data-riga="${lastRiga}">`;
-      // Troviamo l'ultima occorrenza del marker nell'html già costruito
-      const lastIdx = html.lastIndexOf(marker);
-      if(lastIdx !== -1){
-        // trova la chiusura </div> della riga
-        const closeDiv = html.indexOf('</div>', lastIdx);
-        if(closeDiv !== -1){
-          // bottone + rimosso dalla fine della riga — il + sul bordo crea già nuova riga
-          html = html.slice(0, closeDiv) + addBtn + html.slice(closeDiv);
-        }
-      }
-    }
-  }
   // Drop zone per creare nuova riga parallela trascinando
   if(canWrite){
+    const dropNextRiga = righeKeys.length > 0 ? Math.max(...righeKeys)+1 : 0;
     html += `<div class="tasks-row tasks-new-row-drop"
-      data-proj-id="${proj.id}" data-riga="${nextRiga}"
+      data-proj-id="${proj.id}" data-riga="${dropNextRiga}"
       ondragover="onDragOverNewRow(event,this)"
-      ondrop="onDropRow(event,'${proj.id}',${nextRiga})"
+      ondrop="onDropRow(event,'${proj.id}',${dropNextRiga})"
       ondragleave="onDragLeaveRow(this)"
       title="Trascina qui per creare una nuova riga parallela">
       <span class="new-row-hint">+ nuova riga parallela</span>
