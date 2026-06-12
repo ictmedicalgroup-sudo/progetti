@@ -2079,12 +2079,7 @@ function renderDrawer(){
     : tvHtml + prioHtml;
   // Badge sul toggle: mostra contatore prioritari non completati
   const toggle=$('drawer-toggle');
-  if(toggle){
-    const tot = S.taskVeloci.filter(tv=>!tv.completato).length + prioritari.length;
-    toggle.innerHTML = tot>0
-      ? `NOTE <span style="background:var(--orange);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px;">${tot}</span>`
-      : 'NOTE';
-  }
+  if(toggle) toggle.innerHTML = 'NOTE';
 }
 
 async function quickCompleteTask(taskId){
