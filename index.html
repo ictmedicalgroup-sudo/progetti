@@ -1491,7 +1491,7 @@ async function saveTaskDetail(taskId){
   await db('PATCH',T('task'),{flt:`id=eq.${taskId}`,body:updates});
   await writeLog('task_update','task',taskId,{updates});
   Object.assign(t,updates);
-  closeM(); renderBoard($('pb')); toast('Task salvato','ok');
+  closeM(); renderBoard($('pb')); renderDrawer(); toast('Task salvato','ok');
 }
 
 async function addDep(taskId){
