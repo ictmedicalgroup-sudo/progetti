@@ -257,8 +257,9 @@ body{background:var(--g50);color:var(--g900);}
 .task-card.s-bloccato{background:var(--red-light);border-color:var(--red);color:var(--red);}
 .task-card.s-annullato{background:var(--g100);border-color:var(--g200);color:var(--g300);text-decoration:line-through;}
 .task-dep-icon{font-size:10px;opacity:.7;}
-.task-flag{position:absolute;top:-5px;right:-5px;width:10px;height:10px;border-radius:50%;
-           background:var(--orange);border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.task-flag{display:inline-block;width:8px;height:8px;border-radius:50%;
+           background:var(--orange);flex-shrink:0;margin-right:4px;
+           box-shadow:0 0 0 2px rgba(212,118,42,.25);}
 /* drawer task prioritari */
 .tv-item.prioritario .tv-text{font-weight:700;color:var(--g900);}
 .tv-item.prioritario::before{content:'';display:block;width:4px;border-radius:2px;
@@ -1067,10 +1068,8 @@ function buildTasksRow(tasks, proj, canWrite){
         ondragover="onDragOverTask(event,this,'${t.id}')"
         ondrop="onDropTask(event,'${t.id}','${proj.id}',${rk})"
         onclick="event.stopPropagation();openTaskDetail('${t.id}')"
-        oncontextmenu="showCtxMenu(event,'${t.id}')"
-        style="position:relative;">
-        ${t.is_prioritario?'<span class="task-flag" title="Prioritario"></span>':''}
-        ${esc(t.nome)}
+        oncontextmenu="showCtxMenu(event,'${t.id}')">
+        ${t.is_prioritario?'<span class="task-flag"></span>':''}${esc(t.nome)}
       </div>`;
     }
     html += '</div>';
@@ -1142,15 +1141,43 @@ function onMsCatChange(){
   if(!checkboxes) return;
   const ids=[...checkboxes].filter(c=>c.checked).map(c=>c.value);
   S.boardFilter.categorie_ids=ids;
-  // Aggiorna label trigger
+  // Aggiorna solo la label del trigger senza ricostruire il DOM
   const trigger=$('ms-cat-trigger');
-  if(trigger) trigger.childNodes[0] && (trigger.innerHTML=
-    (ids.length===0?'Tutte':ids.length+' selezionat'+(ids.length===1?'a':'e'))+'<span style="font-size:10px;color:var(--g500);margin-left:4px;">▾</span>');
-  goPage('board');
+  if(trigger) trigger.innerHTML=
+    (ids.length===0?'Tutte':ids.length+' selezionat'+(ids.length===1?'a':'e'))+
+    ' <span style="font-size:10px;color:var(--g500);">▾</span>';
+  // Aggiorna solo il tbody del board, senza ricostruire filtri-bar
+  refreshBoardOnly();
 }
 function clearMsCat(){
   S.boardFilter.categorie_ids=[];
-  goPage('board');
+  const trigger=$('ms-cat-trigger');
+  if(trigger) trigger.innerHTML='Tutte <span style="font-size:10px;color:var(--g500);">▾</span>';
+  const checkboxes=$('ms-cat-list')?.querySelectorAll('input[type=checkbox]');
+  if(checkboxes) checkboxes.forEach(c=>c.checked=false);
+  refreshBoardOnly();
+}
+function refreshBoardOnly(){
+  // Ricalcola e ridisegna solo le righe del board, lasciando intatta la filtri-bar
+  const pb=$('pb'); if(!pb) return;
+  const boardWrap=$('board-wrap');
+  if(!boardWrap){ renderBoard(pb); return; }
+  const f=S.boardFilter;
+  let progetti=S.progetti;
+  if(f.testo){ const q=f.testo.toLowerCase(); progetti=progetti.filter(p=>p.nome.toLowerCase().includes(q)||(p.descrizione||'').toLowerCase().includes(q)||S.task.filter(t=>t.progetto_id===p.id&&t.nome.toLowerCase().includes(q)).length>0); }
+  let taskVisibili=S.task;
+  if(f.hide_completati)     taskVisibili=taskVisibili.filter(t=>t.stato!=='completato');
+  if(f.hide_annullati)      taskVisibili=taskVisibili.filter(t=>t.stato!=='annullato');
+  if(f.hide_non_prioritari) taskVisibili=taskVisibili.filter(t=>t.is_prioritario);
+  const catUsed=new Set(progetti.map(p=>p.categoria_id).filter(Boolean));
+  const myCatIds=new Set(S.categorie.filter(c=>c.utente_id===S.user.id).map(c=>c.id));
+  const activeCatIds=f.categorie_ids&&f.categorie_ids.length>0?new Set(f.categorie_ids):null;
+  let cats;
+  if(activeCatIds){ cats=S.categorie.filter(c=>activeCatIds.has(c.id)); progetti=progetti.filter(p=>p.categoria_id&&activeCatIds.has(p.categoria_id)); }
+  else { cats=S.categorie.filter(c=>myCatIds.has(c.id)||catUsed.has(c.id)); }
+  if(f.hide_non_prioritari) progetti=progetti.filter(p=>S.task.some(t=>t.progetto_id===p.id&&t.is_prioritario));
+  const progettiSenzaCat=activeCatIds?[]:progetti.filter(p=>!p.categoria_id);
+  renderBoardRows(cats,progettiSenzaCat,progetti,taskVisibili);
 }
 // Chiudi dropdown ms al click fuori
 document.addEventListener('click', e=>{
@@ -1334,16 +1361,6 @@ document.querySelectorAll && document.addEventListener('DOMContentLoaded',()=>{
       toast(`Stato → ${newStato}`,'ok');
     });
   });
-  $('ctx-prio').addEventListener('click',async e=>{
-    e.stopPropagation();
-    $('ctx-menu').classList.remove('show');
-    if(!S.ctxTask) return;
-    const newVal = !S.ctxTask.is_prioritario;
-    S.ctxTask.is_prioritario = newVal;
-    renderBoard($('pb')); renderDrawer();
-    db('PATCH',T('task'),{flt:`id=eq.${S.ctxTask.id}`,body:{is_prioritario:newVal}})
-      .then(()=>writeLog('task_priorita','task',S.ctxTask.id,{is_prioritario:newVal}));
-  });
   $('ctx-delete').addEventListener('click',async e=>{
     e.stopPropagation();
     if(!S.ctxTask) return;
@@ -1374,13 +1391,20 @@ function openTaskDetail(taskId){
   if(!t) return;
   const proj=S.progetti.find(p=>p.id===t.progetto_id);
   const canWrite=proj&&canWriteProgetto(proj);
+  // Breadcrumb
+  const cat = proj?.categoria_id ? S.categorie.find(c=>c.id===proj.categoria_id) : null;
+  const sub = proj?.sottocategoria_id ? S.sottocategorie.find(s=>s.id===proj.sottocategoria_id) : null;
+  const breadcrumb = [cat?.nome, sub?.nome, proj?.nome].filter(Boolean).join(' › ');
   const statiOpts=['aperto','in_corso','completato','bloccato','annullato'];
   const priOpts=['bassa','normale','alta','critica'];
   const assegnatoProfili=S.profili;
 
   openM(`
   <div class="modal-head">
-    <div class="modal-title">${esc(t.nome)}</div>
+    <div>
+      ${breadcrumb?`<div style="font-size:11px;color:var(--g500);margin-bottom:4px;">${esc(breadcrumb)}</div>`:''}
+      <div class="modal-title">${esc(t.nome)}</div>
+    </div>
     <button class="modal-close" onclick="closeM()">×</button>
   </div>
 
@@ -1879,6 +1903,7 @@ function initDrawer(){
 
   $('drawer-add-btn').addEventListener('click', addTaskVeloce);
   $('drawer-add-input').addEventListener('keydown',e=>{if(e.key==='Enter') addTaskVeloce();});
+  renderDrawer(); // render iniziale con task prioritari già caricati
 
   // Drop zone nel drawer
   const dz=$('drawer-drop-zone');
