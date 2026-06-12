@@ -293,6 +293,20 @@ body{background:var(--g50);color:var(--g900);}
 /* Riga nuova task parallela */
 .tasks-row-new{opacity:.55;transition:opacity .2s;}
 .tasks-row-new:hover{opacity:1;}
+/* Drop zone nuova riga parallela */
+.tasks-new-row-drop{
+  min-height:28px;border:1.5px dashed var(--g200);border-radius:var(--rsm);
+  cursor:default;opacity:0;transition:opacity .2s,border-color .2s,background .2s;
+  align-items:center;padding:0 10px;
+}
+.tasks-new-row-drop:hover,.tasks-new-row-drop.drag-over-row{
+  opacity:1;border-color:var(--verde);background:var(--accent-light);
+}
+/* mostra sempre la zona durante un drag attivo */
+body.is-dragging .tasks-new-row-drop{opacity:.6;}
+body.is-dragging .tasks-new-row-drop:hover{opacity:1;}
+.new-row-hint{font-size:11px;color:var(--g300);white-space:nowrap;pointer-events:none;}
+body.is-dragging .new-row-hint{color:var(--verde);}
 
 /* Add task button */
 .add-task-btn{
@@ -1134,11 +1148,22 @@ function buildTasksRow(tasks, proj, canWrite){
         // trova la chiusura </div> della riga
         const closeDiv = html.indexOf('</div>', lastIdx);
         if(closeDiv !== -1){
-          const addBtn = `<button class="add-task-btn" onclick="openTaskModal(null,'${proj.id}',${lastRiga})" title="Aggiungi task in questa riga">+</button>`;
+          // bottone + rimosso dalla fine della riga — il + sul bordo crea già nuova riga
           html = html.slice(0, closeDiv) + addBtn + html.slice(closeDiv);
         }
       }
     }
+  }
+  // Drop zone per creare nuova riga parallela trascinando
+  if(canWrite){
+    html += `<div class="tasks-row tasks-new-row-drop"
+      data-proj-id="${proj.id}" data-riga="${nextRiga}"
+      ondragover="onDragOverNewRow(event,this)"
+      ondrop="onDropRow(event,'${proj.id}',${nextRiga})"
+      ondragleave="onDragLeaveRow(this)"
+      title="Trascina qui per creare una nuova riga parallela">
+      <span class="new-row-hint">+ nuova riga parallela</span>
+    </div>`;
   }
   html += '</div>';
   return html;
@@ -1271,6 +1296,7 @@ function onDragStartTask(e, taskId, projId, riga){
   setTimeout(()=>{
     const el = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
     if(el) el.classList.add('dragging');
+    document.body.classList.add('is-dragging');
   }, 0);
 }
 
@@ -1280,6 +1306,7 @@ function onDragEndTask(e){
     c.classList.remove('drag-over-left','drag-over-right');
   });
   document.querySelectorAll('.tasks-row.drag-over-row').forEach(r=>r.classList.remove('drag-over-row'));
+  document.body.classList.remove('is-dragging');
   $('drawer-drop-zone').classList.remove('drag-over');
 }
 
@@ -1358,6 +1385,13 @@ async function onDropTask(e, targetTaskId, projId, riga){
 
 function onDragOverRow(e, rowEl, projId, riga){
   e.preventDefault();
+  document.querySelectorAll('.tasks-row.drag-over-row').forEach(r=>{
+    if(r !== rowEl) r.classList.remove('drag-over-row');
+  });
+  rowEl.classList.add('drag-over-row');
+}
+function onDragOverNewRow(e, rowEl){
+  e.preventDefault(); e.stopPropagation();
   document.querySelectorAll('.tasks-row.drag-over-row').forEach(r=>{
     if(r !== rowEl) r.classList.remove('drag-over-row');
   });
