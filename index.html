@@ -1082,7 +1082,7 @@ function buildProgettoRow(proj, indent, taskVisibili){
           <button class="act-btn" style="font-size:10px;padding:1px 6px;" onclick="event.stopPropagation();openPermessiModal('${proj.id}')" title="Permessi">Permessi</button>
         </div>
       </div>
-      ${canWrite?`<button class="add-task-btn" onclick="event.stopPropagation();openTaskModal(null,'${proj.id}',${projNextRiga})" title="Nuovo task in nuova riga"
+      ${canWrite?`<button class="add-task-btn" onclick="event.stopPropagation();openTaskModalNewRow('${proj.id}')" title="Nuovo task in nuova riga"
         style="position:absolute;right:-14px;top:50%;transform:translateY(-50%);z-index:25;
                background:#fff;border:1.5px solid var(--verde);color:var(--verde);width:28px;height:28px;font-size:16px;
                border-radius:50%;box-shadow:var(--sh-sm);">+</button>`:''}
@@ -1621,6 +1621,13 @@ async function removeDep(taskId,depId){
 }
 
 // --- MODAL NUOVO/MODIFICA TASK ---
+function openTaskModalNewRow(progettoId){
+  // Calcola nextRiga live al momento del click
+  const righe = S.task.filter(t=>t.progetto_id===progettoId).map(t=>t.riga??0);
+  const nextRiga = righe.length > 0 ? Math.max(...righe)+1 : 0;
+  openTaskModal(null, progettoId, nextRiga);
+}
+
 function openTaskModal(taskId, progettoId, riga){
   const isNew=!taskId;
   const t=taskId?S.task.find(x=>x.id===taskId):null;
