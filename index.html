@@ -876,30 +876,96 @@ async function initAppuntoMode(){
 
   // Sostituisci l'intero body con l'editor
   document.body.innerHTML = `
-    <div id="appunto-app" style="display:flex;flex-direction:column;height:100vh;font-family:'Raleway',sans-serif;background:var(--g50,#F8F9F8);">
+    <div id="appunto-app" style="display:flex;flex-direction:column;height:100vh;font-family:'Raleway',sans-serif;background:#F8F9F8;">
       <div id="appunto-topbar" style="background:#fff;border-bottom:1px solid #E2E6DF;padding:14px 24px;
-           display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 3px rgba(74,76,77,.08);">
+           display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 3px rgba(74,76,77,.08);flex-shrink:0;">
         <div>
           <div id="appunto-titolo" style="font-size:15px;font-weight:700;color:#2A2C2D;">Caricamento…</div>
           <div id="appunto-breadcrumb" style="font-size:11px;color:#77797A;margin-top:2px;"></div>
         </div>
         <div style="display:flex;align-items:center;gap:14px;">
-          <span id="appunto-status" style="font-size:11px;color:#9DBF60;font-weight:600;"></span>
+          <span id="appunto-status" style="font-size:11px;color:#9DBF60;font-weight:600;white-space:nowrap;"></span>
+          <button id="appunto-save-btn" style="background:#9DBF60;border:none;border-radius:6px;
+            padding:6px 16px;font-family:'Raleway',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">
+            💾 Salva
+          </button>
           <button onclick="window.close()" style="background:none;border:1px solid #E2E6DF;border-radius:6px;
             padding:6px 14px;font-family:'Raleway',sans-serif;font-size:12px;font-weight:600;color:#77797A;cursor:pointer;">
             Chiudi scheda
           </button>
         </div>
       </div>
-      <textarea id="appunto-editor" placeholder="Scrivi qui i tuoi appunti…" 
-        style="flex:1;border:none;outline:none;resize:none;padding:28px 36px;font-size:15px;line-height:1.6;
-               font-family:'Raleway',sans-serif;color:#2A2C2D;background:#fff;"></textarea>
-    </div>`;
+
+      <!-- Toolbar formattazione -->
+      <div id="appunto-toolbar" style="background:#fff;border-bottom:1px solid #E2E6DF;padding:8px 24px;
+           display:flex;align-items:center;gap:4px;flex-shrink:0;flex-wrap:wrap;">
+        <button class="ap-tb-btn" data-cmd="bold" title="Grassetto" style="font-weight:700;">B</button>
+        <button class="ap-tb-btn" data-cmd="italic" title="Corsivo" style="font-style:italic;">I</button>
+        <button class="ap-tb-btn" data-cmd="underline" title="Sottolineato" style="text-decoration:underline;">U</button>
+        <span class="ap-tb-sep"></span>
+        <button class="ap-tb-btn" data-block="h2" title="Titolo">Titolo</button>
+        <button class="ap-tb-btn" data-block="p" title="Testo normale">Testo</button>
+        <span class="ap-tb-sep"></span>
+        <button class="ap-tb-btn" data-cmd="insertUnorderedList" title="Elenco puntato">• Elenco</button>
+        <button class="ap-tb-btn" data-cmd="insertOrderedList" title="Elenco numerato">1. Elenco</button>
+        <span class="ap-tb-sep"></span>
+        <button class="ap-tb-btn" data-cmd="removeFormat" title="Rimuovi formattazione">⌫ Pulisci</button>
+      </div>
+
+      <div id="appunto-editor" contenteditable="true" placeholder="Scrivi qui i tuoi appunti…"
+        style="flex:1;outline:none;overflow-y:auto;padding:28px 36px;font-size:15px;line-height:1.7;
+               font-family:'Raleway',sans-serif;color:#2A2C2D;background:#fff;"></div>
+    </div>
+
+    <style>
+      .ap-tb-btn{
+        background:none;border:1px solid #E2E6DF;border-radius:6px;
+        padding:6px 12px;font-family:'Raleway',sans-serif;font-size:12px;font-weight:600;
+        color:#4A4C4D;cursor:pointer;transition:all .15s;
+      }
+      .ap-tb-btn:hover{background:#EEF5E3;border-color:#9DBF60;color:#9DBF60;}
+      .ap-tb-btn.active{background:#9DBF60;border-color:#9DBF60;color:#fff;}
+      .ap-tb-sep{width:1px;height:22px;background:#E2E6DF;margin:0 4px;}
+      #appunto-editor:empty::before{content:attr(placeholder);color:#C8CEC4;}
+      #appunto-editor h2{font-size:22px;font-weight:700;margin:.6em 0 .3em;color:#2A2C2D;}
+      #appunto-editor ul,#appunto-editor ol{margin:.4em 0;padding-left:1.6em;}
+      #appunto-editor p{margin:.3em 0;}
+      #appunto-save-btn:hover{opacity:.88;}
+    </style>`;
 
   const editor = document.getElementById('appunto-editor');
   const statusEl = document.getElementById('appunto-status');
   const titoloEl = document.getElementById('appunto-titolo');
   const breadcrumbEl = document.getElementById('appunto-breadcrumb');
+  const saveBtn = document.getElementById('appunto-save-btn');
+
+  // ── Toolbar: comandi di formattazione ──
+  document.querySelectorAll('.ap-tb-btn[data-cmd]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      e.preventDefault();
+      editor.focus();
+      document.execCommand(btn.dataset.cmd, false, null);
+      updateToolbarState();
+      scheduleSave();
+    });
+  });
+  document.querySelectorAll('.ap-tb-btn[data-block]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      e.preventDefault();
+      editor.focus();
+      const tag = btn.dataset.block === 'h2' ? 'H2' : 'P';
+      document.execCommand('formatBlock', false, tag);
+      updateToolbarState();
+      scheduleSave();
+    });
+  });
+  function updateToolbarState(){
+    document.querySelectorAll('.ap-tb-btn[data-cmd]').forEach(btn=>{
+      try { btn.classList.toggle('active', document.queryCommandState(btn.dataset.cmd)); } catch(e){}
+    });
+  }
+  editor.addEventListener('keyup', updateToolbarState);
+  editor.addEventListener('mouseup', updateToolbarState);
 
   // Carica dati entità collegata (per titolo/breadcrumb) + appunto esistente
   try {
@@ -934,9 +1000,9 @@ async function initAppuntoMode(){
     breadcrumbEl.textContent = breadcrumb;
     document.title = `Appunto — ${entitaNome}`;
 
-    // Carica testo appunto esistente
+    // Carica testo appunto esistente (HTML formattato)
     const [appunto] = await db('GET', T('appunti'), {flt:`entita_tipo=eq.${tipo}&entita_id=eq.${entitaId}`});
-    editor.value = appunto?.testo || '';
+    editor.innerHTML = appunto?.testo || '';
     statusEl.textContent = appunto ? `Salvato` : '';
   } catch(e){
     titoloEl.textContent = 'Errore di caricamento';
@@ -946,16 +1012,17 @@ async function initAppuntoMode(){
 
   editor.focus();
 
-  // Salvataggio automatico con debounce
+  // ── Salvataggio (manuale + automatico con debounce) ──
   let saveTimer = null;
   let saving = false;
-  async function saveAppunto(){
+
+  async function doSaveAppunto(){
     if(saving) return;
     saving = true;
     statusEl.style.color = '#E8A838';
     statusEl.textContent = 'Salvataggio…';
     try {
-      const testo = editor.value;
+      const testo = editor.innerHTML;
       const existing = await db('GET', T('appunti'), {flt:`entita_tipo=eq.${tipo}&entita_id=eq.${entitaId}`});
       if(existing && existing.length){
         await db('PATCH', T('appunti'), {
@@ -970,6 +1037,9 @@ async function initAppuntoMode(){
       statusEl.style.color = '#9DBF60';
       const now = new Date();
       statusEl.textContent = `Salvato alle ${now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
+      // Notifica le altre schede (board) che lo stato pieno/vuoto è cambiato
+      const hasText = editor.textContent.trim().length > 0;
+      if(bc) bc.postMessage({ tipo, entitaId, hasText });
     } catch(e){
       statusEl.style.color = '#C0392B';
       statusEl.textContent = 'Errore di salvataggio';
@@ -978,24 +1048,26 @@ async function initAppuntoMode(){
     }
   }
 
-  editor.addEventListener('input', ()=>{
+  function scheduleSave(){
     statusEl.style.color = '#77797A';
     statusEl.textContent = 'Modifica in corso…';
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(saveAppunto, 1000);
-  });
+    saveTimer = setTimeout(doSaveAppunto, 1000);
+  }
 
-  // Notifica le altre schede (board) che lo stato pieno/vuoto è cambiato
   const bc = ('BroadcastChannel' in window) ? new BroadcastChannel('progetti-appunti') : null;
-  const origSave = saveAppunto;
-  saveAppunto = async function(){
-    await origSave();
-    if(bc) bc.postMessage({ tipo, entitaId, hasText: editor.value.trim().length > 0 });
-  };
+
+  editor.addEventListener('input', scheduleSave);
+
+  // Pulsante salvataggio manuale: salva immediatamente, annullando il debounce
+  saveBtn.addEventListener('click', ()=>{
+    clearTimeout(saveTimer);
+    doSaveAppunto();
+  });
 
   // Salva anche alla chiusura della scheda (best effort)
   window.addEventListener('beforeunload', ()=>{
-    if(saveTimer) { clearTimeout(saveTimer); saveAppunto(); }
+    if(saveTimer){ clearTimeout(saveTimer); doSaveAppunto(); }
   });
 }
 
