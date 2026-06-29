@@ -2378,7 +2378,7 @@ async function deleteTaskVeloce(id){
 // PAGINA CATEGORIE
 // ============================================================
 function renderCategoriePage(pb){
-  const myCats = S.categorie.filter(c=>c.utente_id===S.user.id);
+  const myCats = S.categorie.filter(c=>c.utente_id===S.user.id).sort((a,b)=>(a.ordine??0)-(b.ordine??0));
 
   pb.innerHTML=`
   <div class="pg-head">
