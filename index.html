@@ -104,6 +104,31 @@ body{background:var(--g50);color:var(--g900);}
                writing-mode:vertical-rl;}
 #drawer-toggle.open{right:300px;}
 
+/* Drawer Persone (secondo pannello a destra, sotto quello Note) */
+#persone-drawer{position:fixed;right:0;top:52px;height:calc(100vh - 92px);
+        width:300px;background:#fff;border-left:1px solid var(--g200);box-shadow:var(--sh-md);
+        z-index:89;transform:translateX(100%);transition:transform .3s;display:flex;flex-direction:column;}
+#persone-drawer.open{transform:translateX(0);}
+#persone-drawer-toggle{position:fixed;right:0;top:calc(50% + 90px);transform:translateY(-50%);z-index:88;
+               background:var(--purple);color:#fff;border:none;cursor:pointer;
+               padding:10px 6px;border-radius:var(--rsm) 0 0 var(--rsm);box-shadow:var(--sh-md);
+               font-family:'Raleway',sans-serif;font-weight:700;font-size:11px;transition:right .3s;
+               writing-mode:vertical-rl;}
+#persone-drawer-toggle.open{right:300px;}
+#persone-drawer-head{padding:16px;border-bottom:1px solid var(--g100);}
+#persone-drawer-head h3{font-size:13px;font-weight:700;color:var(--g700);text-transform:uppercase;letter-spacing:.5px;}
+#persone-drawer-filter-row{padding:12px 16px;border-bottom:1px solid var(--g100);}
+#persone-drawer-filter-row select{width:100%;padding:8px 10px;border:1px solid var(--g200);border-radius:var(--rsm);
+  font-family:'Raleway',sans-serif;font-size:13px;outline:none;background:#fff;}
+#persone-drawer-filter-row select:focus{border-color:var(--purple);}
+#persone-drawer-list{flex:1;overflow-y:auto;padding:8px 0;}
+.pd-item{display:flex;align-items:flex-start;gap:10px;padding:10px 16px;cursor:pointer;transition:background .15s;
+         border-bottom:1px solid var(--g50);}
+.pd-item:hover{background:var(--g50);}
+.pd-text{flex:1;font-size:13px;color:var(--g700);font-weight:600;}
+.pd-meta{font-size:10px;color:var(--g500);margin-top:2px;}
+.pd-stato-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+
 /* ---- DRAWER CONTENT ---- */
 #drawer-head{padding:16px;border-bottom:1px solid var(--g100);display:flex;align-items:center;justify-content:space-between;}
 #drawer-head h3{font-size:13px;font-weight:700;color:var(--g700);text-transform:uppercase;letter-spacing:.5px;}
@@ -555,6 +580,20 @@ body.is-dragging .new-row-hint{color:var(--verde);}
     <div id="drawer-list"></div>
   </div>
 
+  <!-- DRAWER PERSONE -->
+  <button id="persone-drawer-toggle">PERSONE</button>
+  <div id="persone-drawer">
+    <div id="persone-drawer-head">
+      <h3>Persone</h3>
+    </div>
+    <div id="persone-drawer-filter-row">
+      <select id="persone-drawer-select" onchange="onPersoneDrawerFilterChange(this.value)">
+        <option value="">— Seleziona persona —</option>
+      </select>
+    </div>
+    <div id="persone-drawer-list"></div>
+  </div>
+
   <main id="main">
     <div id="pb"></div>
 
@@ -582,14 +621,17 @@ const S = {
   progetti: [], permessi: [],
   task: [], dipendenze: [],
   taskVeloci: [],
+  persone: [], taskPersone: [],
   log: [],
   page: 'board',
   // UI state
-  boardFilter: { testo: '', categorie_ids: [], categoria_id: '', sottocategoria_id: '', hide_completati: false, hide_annullati: false, hide_non_prioritari: false },
+  boardFilter: { testo: '', categorie_ids: [], categoria_id: '', sottocategoria_id: '', hide_completati: false, hide_annullati: false, hide_non_prioritari: false, persona_id: '' },
   boardExpanded: {}, // { cat_id: bool, sub_id: bool, proj_id: bool }
   ctxTask: null,     // task corrente nel context menu
   drawerOpen: false,
   drawerDate: null,
+  personeDrawerOpen: false,
+  personeDrawerFilter: '',
   appuntiPresenza: {}, // { 'categoria:ID': true/false } — cache leggera per indicare presenza testo
 };
 
@@ -684,7 +726,7 @@ async function writeLog(azione, entita, entitaId, dettaglio={}){
 // LOAD ALL
 // ============================================================
 async function loadAll(){
-  const [profili,categorie,sottocategorie,progetti,permessi,task,dipendenze,taskVeloci,appunti] = await Promise.all([
+  const [profili,categorie,sottocategorie,progetti,permessi,task,dipendenze,taskVeloci,appunti,persone,taskPersone] = await Promise.all([
     db('GET', T('profili'),        {ord:'cognome.asc,nome.asc'}),
     db('GET', T('categorie'),      {ord:'ordine.asc,nome.asc'}),
     db('GET', T('sottocategorie'), {ord:'ordine.asc,nome.asc'}),
@@ -694,11 +736,14 @@ async function loadAll(){
     db('GET', T('task_dipendenze'),{}),
     db('GET', T('task_veloci'),    {flt:`data_riferimento=eq.${today()}`,ord:'ordine.asc'}),
     db('GET', T('appunti'),        {sel:'entita_tipo,entita_id,testo'}),
+    db('GET', T('persone'),        {ord:'cognome.asc,nome.asc'}),
+    db('GET', T('task_persone'),   {}),
   ]);
   S.profili=profili||[]; S.categorie=categorie||[];
   S.sottocategorie=sottocategorie||[]; S.progetti=progetti||[];
   S.permessi=permessi||[]; S.task=task||[];
   S.dipendenze=dipendenze||[]; S.taskVeloci=taskVeloci||[];
+  S.persone=persone||[]; S.taskPersone=taskPersone||[];
   // Cache leggera: solo presenza/assenza testo, non il contenuto completo
   S.appuntiPresenza = {};
   (appunti||[]).forEach(a=>{
@@ -756,6 +801,7 @@ function logoHTML(small=false){
 const NAV = [
   { id:'board',      label:'Board',      always:true },
   { id:'categorie',  label:'Categorie',  always:true },
+  { id:'persone',    label:'Persone',    always:true },
   { id:'utenti',     label:'Utenti',     admin:true  },
   { id:'log',        label:'Log',        admin:true  },
 ];
@@ -797,6 +843,7 @@ function goPage(pg){
   const pb=$('pb');
   if(pg==='board')       renderBoard(pb);
   else if(pg==='categorie') renderCategoriePage(pb);
+  else if(pg==='persone')   renderPersonePage(pb);
   else if(pg==='utenti') renderUtenti(pb);
   else if(pg==='log')    renderLogPage(pb);
 }
@@ -819,7 +866,7 @@ async function doLogin(){
     S.user=profilo;
     await loadAll();
     $('lp').classList.add('hid'); $('app').classList.remove('hid');
-    initDrawer(); renderSidebar(); goPage('board');
+    initDrawer(); initPersoneDrawer(); renderSidebar(); goPage('board');
   }catch(e){
     err.textContent=e.message; err.style.display='block';
     btn.innerHTML='Accedi'; btn.disabled=false;
@@ -1134,6 +1181,15 @@ function renderBoard(pb){
   if(f.hide_non_prioritari) progetti = progetti.filter(p=>
     S.task.some(t=>t.progetto_id===p.id && t.is_prioritario)
   );
+  // Filtro persona: mostra solo progetti con almeno un task in cui la persona è coinvolta
+  if(f.persona_id){
+    const taskIdsConPersona = new Set(S.taskPersone.filter(tp=>tp.persona_id===f.persona_id).map(tp=>tp.task_id));
+    progetti = progetti.filter(p=>S.task.some(t=>t.progetto_id===p.id && taskIdsConPersona.has(t.id)));
+  }
+
+  // Persone per il filtro (proprie)
+  const myPersoneFiltro = S.persone.filter(p=>p.utente_id===S.user.id)
+    .sort((a,b)=>(a.cognome||'').localeCompare(b.cognome||'')||(a.nome||'').localeCompare(b.nome||''));
 
   // Categorie per il filtro (tutte)
   const myCats = S.categorie.filter(c=>c.utente_id===S.user.id);
@@ -1145,6 +1201,7 @@ function renderBoard(pb){
       <div class="pg-sub">Gestisci categorie, progetti e task</div>
     </div>
     <div style="display:flex;gap:10px;">
+      <button class="mbtn mbtn-secondary" id="board-refresh-btn" onclick="refreshBoardData()" title="Ricarica dati dal database">⟳ Aggiorna</button>
       <button class="mbtn mbtn-secondary" onclick="collapseAllAcc()" title="Comprimi tutto">⊟ Comprimi tutto</button>
       <button class="mbtn mbtn-secondary" onclick="expandAllAcc()" title="Espandi tutto">⊞ Espandi tutto</button>
       <button class="mbtn mbtn-secondary" onclick="goPage('categorie')">Categorie</button>
@@ -1177,6 +1234,13 @@ function renderBoard(pb){
           <div class="ms-clear" onclick="clearMsCat()">Deseleziona tutto</div>
         </div>
       </div>
+    </div>
+    <div class="filtro-group">
+      <label>Persona</label>
+      <select class="filtro-sel" id="f-persona" onchange="onFiltroPersona(this.value)">
+        <option value="">Tutte</option>
+        ${myPersoneFiltro.map(p=>`<option value="${p.id}"${f.persona_id===p.id?' selected':''}>${esc(p.nome+' '+p.cognome)}</option>`).join('')}
+      </select>
     </div>
     <div class="filtro-group" style="gap:12px;">
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;font-size:12px;color:var(--g500);">
@@ -1438,6 +1502,23 @@ function toggleAcc(key){
   const pb=$('pb'); renderBoard(pb);
 }
 
+async function refreshBoardData(){
+  const btn = document.getElementById('board-refresh-btn');
+  if(btn){ btn.disabled = true; btn.innerHTML = '<span class="spn" style="border-color:rgba(0,0,0,.15);border-top-color:var(--g500);"></span> Aggiorno…'; }
+  try {
+    await loadAll();
+    renderDrawer();
+    renderPersoneDrawer();
+    renderBoard($('pb'));
+    toast('Board aggiornata','ok');
+  } catch(e){
+    toast('Errore durante l\'aggiornamento: '+e.message,'err');
+  } finally {
+    const btn2 = document.getElementById('board-refresh-btn');
+    if(btn2){ btn2.disabled = false; btn2.innerHTML = '⟳ Aggiorna'; }
+  }
+}
+
 function collapseAllAcc(){
   // Imposta a false tutte le chiavi di categorie, sottocategorie e progetti correntemente visibili
   S.categorie.forEach(c=>{ S.boardExpanded['cat_'+c.id] = false; });
@@ -1469,9 +1550,10 @@ function onFiltroCat(v){
 }
 function onFiltroSub(v){ S.boardFilter.sottocategoria_id=v; goPage('board'); }
 function onFiltroFlag(key,val){ S.boardFilter[key]=val; goPage('board'); }
+function onFiltroPersona(v){ S.boardFilter.persona_id=v; goPage('board'); }
 function resetFiltri(){
   S.boardFilter={testo:'',categorie_ids:[],categoria_id:'',sottocategoria_id:'',
-    hide_completati:false,hide_annullati:false,hide_non_prioritari:false};
+    hide_completati:false,hide_annullati:false,hide_non_prioritari:false,persona_id:''};
   goPage('board');
 }
 // Multiselect categorie
@@ -1528,6 +1610,10 @@ function refreshBoardOnly(){
   if(activeCatIds){ cats=S.categorie.filter(c=>activeCatIds.has(c.id)); progetti=progetti.filter(p=>p.categoria_id&&activeCatIds.has(p.categoria_id)); }
   else { cats=S.categorie.filter(c=>myCatIds.has(c.id)||catUsed.has(c.id)); }
   if(f.hide_non_prioritari) progetti=progetti.filter(p=>S.task.some(t=>t.progetto_id===p.id&&t.is_prioritario));
+  if(f.persona_id){
+    const taskIdsConPersona=new Set(S.taskPersone.filter(tp=>tp.persona_id===f.persona_id).map(tp=>tp.task_id));
+    progetti=progetti.filter(p=>S.task.some(t=>t.progetto_id===p.id&&taskIdsConPersona.has(t.id)));
+  }
   const progettiSenzaCat=activeCatIds?[]:progetti.filter(p=>!p.categoria_id);
   renderBoardRows(cats,progettiSenzaCat,progetti,taskVisibili);
 }
@@ -1758,7 +1844,8 @@ document.querySelectorAll && document.addEventListener('DOMContentLoaded',()=>{
     await db('DELETE',T('task'),{flt:`id=eq.${S.ctxTask.id}`});
     await writeLog('task_delete','task',S.ctxTask.id,{nome:S.ctxTask.nome});
     S.task=S.task.filter(t=>t.id!==S.ctxTask.id);
-    S.ctxTask=null; renderBoard($('pb')); toast('Task eliminato','ok');
+    S.taskPersone=S.taskPersone.filter(tp=>tp.task_id!==S.ctxTask.id);
+    S.ctxTask=null; renderBoard($('pb')); renderPersoneDrawer(); toast('Task eliminato','ok');
   });
 });
 
@@ -1775,6 +1862,106 @@ $('modal-overlay') && document.addEventListener('DOMContentLoaded',()=>{
 });
 
 // --- TASK DETAIL ---
+// ============================================================
+// HELPER: selezione persone su task (multiselect dropdown)
+// ============================================================
+function buildPersoneMultiselect(fieldPrefix, taskId){
+  const myPersone = S.persone.filter(p=>p.utente_id===S.user.id)
+    .sort((a,b)=>(a.cognome||'').localeCompare(b.cognome||'')||(a.nome||'').localeCompare(b.nome||''));
+  const selectedIds = taskId
+    ? S.taskPersone.filter(tp=>tp.task_id===taskId).map(tp=>tp.persona_id)
+    : [];
+
+  if(myPersone.length === 0){
+    return `<div style="font-size:12px;color:var(--g300);">Nessuna persona in anagrafica. <a href="javascript:void(0)" onclick="goPage('persone')" style="color:var(--verde);">Aggiungine una</a></div>`;
+  }
+
+  const ddId = `${fieldPrefix}-dd`;
+  const triggerId = `${fieldPrefix}-trigger`;
+  const listId = `${fieldPrefix}-list`;
+
+  return `
+  <div class="ms-wrap" id="${fieldPrefix}-wrap" data-field="${fieldPrefix}">
+    <div class="ms-trigger" id="${triggerId}" onclick="toggleMsGeneric(event,'${ddId}')">
+      ${selectedIds.length===0?'Nessuna persona':selectedIds.length+' selezionat'+(selectedIds.length===1?'a':'e')}
+    </div>
+    <div class="ms-dropdown" id="${ddId}">
+      <div class="ms-search"><input type="text" placeholder="Cerca persona…" oninput="filterMsGeneric('${listId}',this.value)" onclick="event.stopPropagation()"/></div>
+      <div class="ms-list" id="${listId}">
+        ${myPersone.map(p=>`
+        <label class="ms-item">
+          <input type="checkbox" value="${p.id}" ${selectedIds.includes(p.id)?'checked':''} onclick="event.stopPropagation()" onchange="onMsPersoneChange('${fieldPrefix}')"/>
+          <span style="width:10px;height:10px;border-radius:50%;background:${esc(p.colore_tag)};flex-shrink:0;display:inline-block;"></span>
+          ${esc(p.nome)} ${esc(p.cognome)}${p.tag?` <span style="color:var(--g300);font-size:11px;">· ${esc(p.tag)}</span>`:''}
+        </label>`).join('')}
+      </div>
+      <div class="ms-clear" onclick="clearMsGeneric('${fieldPrefix}')">Deseleziona tutto</div>
+    </div>
+  </div>`;
+}
+
+function buildPersoneReadonly(taskId){
+  const ids = S.taskPersone.filter(tp=>tp.task_id===taskId).map(tp=>tp.persona_id);
+  if(ids.length === 0) return '';
+  const nomi = ids.map(id=>{
+    const p = S.persone.find(x=>x.id===id);
+    return p ? `${esc(p.nome)} ${esc(p.cognome)}` : null;
+  }).filter(Boolean);
+  if(!nomi.length) return '';
+  return `<div style="margin-top:8px;"><b>Persone:</b> ${nomi.join(', ')}</div>`;
+}
+
+// Generic multiselect toggle/filter (riusabile per persone e altri campi futuri)
+function toggleMsGeneric(e, ddId){
+  e.stopPropagation();
+  document.querySelectorAll('.ms-dropdown.open').forEach(dd=>{ if(dd.id!==ddId) dd.classList.remove('open'); });
+  const dd=document.getElementById(ddId); if(dd) dd.classList.toggle('open');
+}
+function filterMsGeneric(listId, q){
+  const list=document.getElementById(listId); if(!list) return;
+  list.querySelectorAll('.ms-item').forEach(item=>{
+    item.style.display = item.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
+  });
+}
+function onMsPersoneChange(fieldPrefix){
+  const trigger=document.getElementById(`${fieldPrefix}-trigger`);
+  const list=document.getElementById(`${fieldPrefix}-list`);
+  if(!trigger||!list) return;
+  const checked=[...list.querySelectorAll('input[type=checkbox]')].filter(c=>c.checked);
+  trigger.innerHTML = checked.length===0?'Nessuna persona':checked.length+' selezionat'+(checked.length===1?'a':'e')+' <span style="font-size:10px;color:var(--g500);">▾</span>';
+}
+function clearMsGeneric(fieldPrefix){
+  const list=document.getElementById(`${fieldPrefix}-list`);
+  if(list) list.querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=false);
+  onMsPersoneChange(fieldPrefix);
+}
+function getMsSelectedIds(fieldPrefix){
+  const list=document.getElementById(`${fieldPrefix}-list`);
+  if(!list) return [];
+  return [...list.querySelectorAll('input[type=checkbox]:checked')].map(c=>c.value);
+}
+// Chiudi dropdown generici al click fuori
+document.addEventListener('click', e=>{
+  document.querySelectorAll('.ms-dropdown.open').forEach(dd=>{
+    if(!dd.parentElement?.contains(e.target)) dd.classList.remove('open');
+  });
+});
+
+async function syncTaskPersone(taskId, selectedIds){
+  const current = S.taskPersone.filter(tp=>tp.task_id===taskId).map(tp=>tp.persona_id);
+  const toAdd = selectedIds.filter(id=>!current.includes(id));
+  const toRemove = current.filter(id=>!selectedIds.includes(id));
+
+  // Aggiorna stato locale immediatamente
+  S.taskPersone = S.taskPersone.filter(tp=>!(tp.task_id===taskId && toRemove.includes(tp.persona_id)));
+  toAdd.forEach(id=>S.taskPersone.push({task_id:taskId, persona_id:id}));
+
+  const ops = [];
+  if(toAdd.length) ops.push(db('POST', T('task_persone'), {body: toAdd.map(id=>({task_id:taskId, persona_id:id}))}));
+  toRemove.forEach(id=>ops.push(db('DELETE', T('task_persone'), {flt:`task_id=eq.${taskId}&persona_id=eq.${id}`})));
+  await Promise.all(ops);
+}
+
 function openTaskDetail(taskId){
   const t=S.task.find(x=>x.id===taskId);
   if(!t) return;
@@ -1845,12 +2032,17 @@ function openTaskDetail(taskId){
       ${assegnatoProfili.map(p=>`<option value="${p.id}"${t.assegnato_a===p.id?' selected':''}>${esc(p.nome+' '+p.cognome)}</option>`).join('')}
     </select>
   </div>
+  <div class="mfield">
+    <label>Persone coinvolte</label>
+    ${buildPersoneMultiselect('td-persone', taskId)}
+  </div>
   `:
   `<div style="background:var(--g50);border-radius:var(--rsm);padding:16px;margin-bottom:16px;font-size:13px;">
     <div><b>Stato:</b> ${t.stato.replace('_',' ')}</div>
     <div><b>Priorità:</b> ${t.priorita}${t.is_prioritario?' &nbsp;<span style="color:var(--orange);font-weight:700;">⚡ Prioritario</span>':''}</div>
     ${t.data_scadenza?`<div><b>Scadenza:</b> ${fmt(t.data_scadenza)}</div>`:''}
     ${t.descrizione?`<div style="margin-top:8px;color:var(--g500);">${esc(t.descrizione)}</div>`:''}
+    ${buildPersoneReadonly(taskId)}
   </div>`}
 
 
@@ -1880,7 +2072,10 @@ async function saveTaskDetail(taskId){
   await db('PATCH',T('task'),{flt:`id=eq.${taskId}`,body:updates});
   await writeLog('task_update','task',taskId,{updates});
   Object.assign(t,updates);
-  closeM(); renderBoard($('pb')); renderDrawer(); toast('Task salvato','ok');
+  // Sincronizza persone coinvolte
+  const selectedPersone = getMsSelectedIds('td-persone');
+  await syncTaskPersone(taskId, selectedPersone);
+  closeM(); renderBoard($('pb')); renderDrawer(); renderPersoneDrawer(); toast('Task salvato','ok');
 }
 
 async function addDep(taskId){
@@ -1956,9 +2151,13 @@ function openTaskModal(taskId, progettoId, riga){
       ${S.profili.map(p=>`<option value="${p.id}"${t?.assegnato_a===p.id?' selected':''}>${esc(p.nome+' '+p.cognome)}</option>`).join('')}
     </select>
   </div>
+  <div class="mfield">
+    <label>Persone coinvolte</label>
+    ${buildPersoneMultiselect('tm-persone', taskId)}
+  </div>
   <div class="modal-actions">
     <button class="mbtn mbtn-secondary" onclick="closeM()">Annulla</button>
-    <button class="mbtn mbtn-primary" onclick="saveTask('${taskId||''}','${progettoId||t?.progetto_id||''}')">💾 Salva</button>
+    <button class="mbtn mbtn-primary" onclick="saveTask('${taskId||''}','${progettoId||t?.progetto_id||''}',${riga??t?.riga??0})">💾 Salva</button>
   </div>`);
 }
 
@@ -1987,14 +2186,18 @@ async function saveTask(taskId, progettoId, riga){
     const [created]=await db('POST',T('task'),{body});
     S.task.push(created);
     await writeLog('task_create','task',created.id,{nome:created.nome,progetto_id:progettoId});
+    const selectedPersone = getMsSelectedIds('tm-persone');
+    if(selectedPersone.length) await syncTaskPersone(created.id, selectedPersone);
     toast('Task creato','ok');
   } else {
     await db('PATCH',T('task'),{flt:`id=eq.${taskId}`,body});
     const t=S.task.find(x=>x.id===taskId); if(t) Object.assign(t,body);
     await writeLog('task_update','task',taskId,{updates:body});
+    const selectedPersone = getMsSelectedIds('tm-persone');
+    await syncTaskPersone(taskId, selectedPersone);
     toast('Task aggiornato','ok');
   }
-  closeM(); renderBoard($('pb'));
+  closeM(); renderBoard($('pb')); renderPersoneDrawer();
 }
 
 // ============================================================
@@ -2377,6 +2580,64 @@ async function quickCompleteTask(taskId){
   db('PATCH',T('task'),{flt:`id=eq.${taskId}`,body:{stato:'completato'}});
 }
 
+// ============================================================
+// DRAWER PERSONE
+// ============================================================
+function initPersoneDrawer(){
+  $('persone-drawer-toggle').addEventListener('click',()=>{
+    S.personeDrawerOpen=!S.personeDrawerOpen;
+    $('persone-drawer').classList.toggle('open',S.personeDrawerOpen);
+    $('persone-drawer-toggle').classList.toggle('open',S.personeDrawerOpen);
+  });
+  renderPersoneDrawer();
+}
+
+function onPersoneDrawerFilterChange(personaId){
+  S.personeDrawerFilter = personaId;
+  renderPersoneDrawer();
+}
+
+function renderPersoneDrawer(){
+  const select=$('persone-drawer-select');
+  const list=$('persone-drawer-list');
+  if(!select||!list) return;
+
+  const myPersone = S.persone.filter(p=>p.utente_id===S.user.id)
+    .sort((a,b)=>(a.cognome||'').localeCompare(b.cognome||'')||(a.nome||'').localeCompare(b.nome||''));
+
+  // Ricostruisci la select solo se le opzioni sono cambiate (evita di perdere il focus mentre si seleziona)
+  const currentVal = S.personeDrawerFilter || '';
+  select.innerHTML = `<option value="">— Seleziona persona —</option>` +
+    myPersone.map(p=>`<option value="${p.id}"${currentVal===p.id?' selected':''}>${esc(p.nome+' '+p.cognome)}</option>`).join('');
+  select.value = currentVal;
+
+  if(!currentVal){
+    list.innerHTML = `<div style="padding:20px;text-align:center;font-size:12px;color:var(--g300);">Seleziona una persona per vedere i suoi task</div>`;
+    return;
+  }
+
+  const taskIds = S.taskPersone.filter(tp=>tp.persona_id===currentVal).map(tp=>tp.task_id);
+  const tasks = S.task.filter(t=>taskIds.includes(t.id) && t.stato!=='completato' && t.stato!=='annullato');
+
+  if(!tasks.length){
+    list.innerHTML = `<div style="padding:20px;text-align:center;font-size:12px;color:var(--g300);">Nessun task aperto per questa persona</div>`;
+    return;
+  }
+
+  const statiColor = {aperto:'var(--g300)',in_corso:'var(--yellow)',bloccato:'var(--red)'};
+
+  list.innerHTML = tasks.map(t=>{
+    const proj = S.progetti.find(p=>p.id===t.progetto_id);
+    return `<div class="pd-item" onclick="openTaskDetail('${t.id}')" title="Apri nel board">
+      <span class="pd-stato-dot" style="background:${statiColor[t.stato]||'var(--g300)'}"></span>
+      <div style="flex:1;">
+        <div class="pd-text">${esc(t.nome)}</div>
+        ${proj?`<div class="pd-meta">${esc(proj.nome)}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
 async function addTaskVeloce(){
   const inp=$('drawer-add-input');
   const testo=inp.value.trim();
@@ -2564,6 +2825,132 @@ function onCatDragEnd(e){
     c.classList.remove('drop-before','drop-after');
   });
   _dragCatId = null;
+}
+
+// ============================================================
+// PAGINA PERSONE
+// ============================================================
+function renderPersonePage(pb){
+  const myPersone = S.persone.filter(p=>p.utente_id===S.user.id)
+    .sort((a,b)=>(a.cognome||'').localeCompare(b.cognome||'')||(a.nome||'').localeCompare(b.nome||''));
+
+  pb.innerHTML=`
+  <div class="pg-head">
+    <div>
+      <div class="pg-title">Persone</div>
+      <div class="pg-sub">Anagrafica contatti coinvolti nei progetti</div>
+    </div>
+    <button class="mbtn mbtn-primary" onclick="openPersonaModal()">+ Nuova persona</button>
+  </div>
+
+  ${myPersone.length===0?`
+  <div class="empty-state">
+    <div class="es-icon">👤</div>
+    <p>Nessuna persona in anagrafica. Aggiungine una per associarla ai task.</p>
+  </div>`:`
+  <div style="background:#fff;border-radius:var(--r);border:1px solid var(--g200);box-shadow:var(--sh-sm);overflow:hidden;">
+  <table class="utenti-table">
+    <thead><tr>
+      <th>Nome</th><th>Azienda</th><th>Email</th><th>Telefono</th><th>Tag</th><th>Task</th><th>Azioni</th>
+    </tr></thead>
+    <tbody>
+    ${myPersone.map(p=>{
+      const nTask = S.taskPersone.filter(tp=>tp.persona_id===p.id).length;
+      return `
+      <tr>
+        <td><b>${esc(p.nome)} ${esc(p.cognome)}</b></td>
+        <td style="color:var(--g500)">${esc(p.azienda)||'—'}</td>
+        <td style="color:var(--g500)">${esc(p.email)||'—'}</td>
+        <td style="color:var(--g500)">${esc(p.telefono)||'—'}</td>
+        <td>${p.tag?`<span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${esc(p.colore_tag)}22;color:${esc(p.colore_tag)};border:1px solid ${esc(p.colore_tag)};">${esc(p.tag)}</span>`:'—'}</td>
+        <td style="color:var(--g500)">${nTask}</td>
+        <td>
+          <button class="act-btn" onclick="openPersonaModal('${p.id}')">✏️ Modifica</button>
+          <button class="act-btn" style="color:var(--red)" onclick="deletePersonaConfirm('${p.id}')">🗑️</button>
+        </td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+  </table>
+  </div>`}`;
+}
+
+function openPersonaModal(personaId){
+  const isNew=!personaId;
+  const p=personaId?S.persone.find(x=>x.id===personaId):null;
+
+  openM(`
+  <div class="modal-head">
+    <div class="modal-title">${isNew?'Nuova Persona':'Modifica Persona'}</div>
+    <button class="modal-close" onclick="closeM()">×</button>
+  </div>
+  <div class="mfield-row">
+    <div class="mfield"><label>Nome *</label><input id="per-nome" value="${p?esc(p.nome):''}"/></div>
+    <div class="mfield"><label>Cognome</label><input id="per-cognome" value="${p?esc(p.cognome):''}"/></div>
+  </div>
+  <div class="mfield-row">
+    <div class="mfield"><label>Email</label><input type="email" id="per-email" value="${p?esc(p.email):''}"/></div>
+    <div class="mfield"><label>Telefono</label><input id="per-telefono" value="${p?esc(p.telefono):''}"/></div>
+  </div>
+  <div class="mfield"><label>Azienda</label><input id="per-azienda" value="${p?esc(p.azienda):''}"/></div>
+  <div class="mfield-row">
+    <div class="mfield"><label>Tag</label><input id="per-tag" placeholder="es. Cliente, Fornitore, IT…" value="${p?esc(p.tag):''}"/></div>
+    <div class="mfield"><label>Colore tag</label>
+      <input type="color" id="per-colore" value="${p?.colore_tag||'#9DBF60'}" style="height:38px;padding:2px 6px;width:100%;"/>
+    </div>
+  </div>
+  <div class="modal-actions">
+    ${!isNew?`<button class="mbtn mbtn-danger" onclick="deletePersonaConfirm('${personaId}')">🗑️ Elimina</button>`:''}
+    <button class="mbtn mbtn-secondary" onclick="closeM()">Annulla</button>
+    <button class="mbtn mbtn-primary" onclick="savePersona('${personaId||''}')">💾 Salva</button>
+  </div>`);
+}
+
+async function savePersona(personaId){
+  const nome=$('per-nome').value.trim();
+  if(!nome){toast('Nome obbligatorio','err');return;}
+  const body={
+    nome,
+    cognome: $('per-cognome').value.trim(),
+    email:   $('per-email').value.trim(),
+    telefono:$('per-telefono').value.trim(),
+    azienda: $('per-azienda').value.trim(),
+    tag:     $('per-tag').value.trim(),
+    colore_tag: $('per-colore').value,
+  };
+  if(!personaId){
+    body.utente_id=S.user.id;
+    const [created]=await db('POST',T('persone'),{body});
+    S.persone.push(created);
+    await writeLog('persona_create','persona',created.id,{nome:created.nome});
+    toast('Persona creata','ok');
+  } else {
+    await db('PATCH',T('persone'),{flt:`id=eq.${personaId}`,body});
+    const p=S.persone.find(x=>x.id===personaId); if(p) Object.assign(p,body);
+    await writeLog('persona_update','persona',personaId,{updates:body});
+    toast('Persona aggiornata','ok');
+  }
+  closeM();
+  if(S.page==='persone') renderPersonePage($('pb')); else renderBoard($('pb'));
+  renderPersoneDrawer();
+}
+
+async function deletePersonaConfirm(personaId){
+  const persona=S.persone.find(p=>p.id===personaId);
+  const nTask=S.taskPersone.filter(tp=>tp.persona_id===personaId).length;
+  const msg=nTask>0
+    ? `Eliminare "${persona?.nome} ${persona?.cognome}"? Verrà rimossa da ${nTask} task associat${nTask===1?'o':'i'}.`
+    : `Eliminare "${persona?.nome} ${persona?.cognome}"?`;
+  const ok=await openConf('Elimina persona',msg);
+  if(!ok) return;
+  await db('DELETE',T('persone'),{flt:`id=eq.${personaId}`});
+  S.taskPersone=S.taskPersone.filter(tp=>tp.persona_id!==personaId);
+  S.persone=S.persone.filter(p=>p.id!==personaId);
+  await writeLog('persona_delete','persona',personaId,{nome:persona?.nome});
+  closeM();
+  if(S.page==='persone') renderPersonePage($('pb')); else renderBoard($('pb'));
+  renderPersoneDrawer();
+  toast('Persona eliminata','ok');
 }
 
 // ============================================================
@@ -2911,7 +3298,8 @@ document.addEventListener('DOMContentLoaded', async()=>{
     await db('DELETE',T('task'),{flt:`id=eq.${S.ctxTask.id}`});
     await writeLog('task_delete','task',S.ctxTask.id,{nome:S.ctxTask.nome});
     S.task=S.task.filter(t=>t.id!==S.ctxTask.id);
-    S.ctxTask=null; renderBoard($('pb')); toast('Task eliminato','ok');
+    S.taskPersone=S.taskPersone.filter(tp=>tp.task_id!==S.ctxTask.id);
+    S.ctxTask=null; renderBoard($('pb')); renderPersoneDrawer(); toast('Task eliminato','ok');
   });
 });
 </script>
