@@ -334,7 +334,15 @@ body.is-dragging .new-row-hint{color:var(--verde);}
 .appunto-btn.filled:hover{opacity:.85;}
 
 .cat-drag-handle:active{cursor:grabbing;}
-.cat-card{transition:border-color .15s;}
+.cat-card{transition:border-color .15s;position:relative;}
+.cat-card.drop-before::before{
+  content:'';position:absolute;top:-3px;left:8px;right:8px;height:3px;
+  background:var(--verde);border-radius:2px;z-index:10;
+}
+.cat-card.drop-after::after{
+  content:'';position:absolute;bottom:-3px;left:8px;right:8px;height:3px;
+  background:var(--verde);border-radius:2px;z-index:10;
+}
 
 /* Cella task per righe categoria/sottocategoria (vuota ma con sfondo) */
 .tasks-cell-cat{background:var(--g100);border-bottom:1px solid var(--g200);}
@@ -2508,26 +2516,36 @@ function onCatDragStart(e, catId){
 function onCatDragOver(e, cardEl){
   if(!_dragCatId || cardEl.dataset.catId === _dragCatId) return;
   e.preventDefault();
-  document.querySelectorAll('.cat-card').forEach(c=>{ if(c!==cardEl) c.style.borderColor='var(--g200)'; });
-  cardEl.style.borderColor = 'var(--verde)';
+  document.querySelectorAll('.cat-card').forEach(c=>{
+    c.classList.remove('drop-before','drop-after');
+  });
+  const rect = cardEl.getBoundingClientRect();
+  const isAbove = e.clientY < rect.top + rect.height/2;
+  cardEl.classList.add(isAbove ? 'drop-before' : 'drop-after');
 }
 
 function onCatDragLeave(cardEl){
-  cardEl.style.borderColor = 'var(--g200)';
+  cardEl.classList.remove('drop-before','drop-after');
 }
 
 async function onCatDrop(e, targetCatId){
   e.preventDefault();
-  document.querySelectorAll('.cat-card').forEach(c=>c.style.borderColor='var(--g200)');
+  const targetEl = document.querySelector(`.cat-card[data-cat-id="${targetCatId}"]`);
+  const dropBefore = targetEl?.classList.contains('drop-before');
+  document.querySelectorAll('.cat-card').forEach(c=>c.classList.remove('drop-before','drop-after'));
   if(!_dragCatId || _dragCatId === targetCatId) return;
 
-  const myCats = S.categorie.filter(c=>c.utente_id===S.user.id);
+  // Ordine sempre coerente con quello visualizzato
+  const myCats = S.categorie.filter(c=>c.utente_id===S.user.id).sort((a,b)=>(a.ordine??0)-(b.ordine??0));
   const fromIdx = myCats.findIndex(c=>c.id===_dragCatId);
-  const toIdx   = myCats.findIndex(c=>c.id===targetCatId);
+  let toIdx = myCats.findIndex(c=>c.id===targetCatId);
   if(fromIdx<0||toIdx<0) return;
 
   const moved = myCats.splice(fromIdx,1)[0];
-  myCats.splice(toIdx,0,moved);
+  // Ricalcola toIdx dopo la rimozione, poi inserisci prima o dopo il target in base all'indicatore
+  toIdx = myCats.findIndex(c=>c.id===targetCatId);
+  const insertAt = dropBefore ? toIdx : toIdx + 1;
+  myCats.splice(insertAt, 0, moved);
 
   // Aggiorna l'ordine locale e re-render immediato (ottimistico)
   myCats.forEach((c,i)=>{ c.ordine = i; });
@@ -2543,7 +2561,7 @@ async function onCatDrop(e, targetCatId){
 function onCatDragEnd(e){
   document.querySelectorAll('.cat-card').forEach(c=>{
     c.style.opacity = '1';
-    c.style.borderColor = 'var(--g200)';
+    c.classList.remove('drop-before','drop-after');
   });
   _dragCatId = null;
 }
