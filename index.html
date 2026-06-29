@@ -651,6 +651,7 @@ const S = {
   drawerDate: null,
   personeDrawerOpen: false,
   personeDrawerFilter: '',
+  personePageFilter: '',
   appuntiPresenza: {}, // { 'categoria:ID': true/false } — cache leggera per indicare presenza testo
 };
 
@@ -1208,7 +1209,7 @@ function renderBoard(pb){
 
   // Persone per il filtro (proprie)
   const myPersoneFiltro = S.persone.filter(p=>p.utente_id===S.user.id)
-    .sort((a,b)=>(a.cognome||'').localeCompare(b.cognome||'')||(a.nome||'').localeCompare(b.nome||''));
+    .sort((a,b)=>(a.nome||'').localeCompare(b.nome||'')||(a.cognome||'').localeCompare(b.cognome||''));
 
   // Categorie per il filtro (tutte)
   const myCats = S.categorie.filter(c=>c.utente_id===S.user.id);
@@ -1886,7 +1887,7 @@ $('modal-overlay') && document.addEventListener('DOMContentLoaded',()=>{
 // ============================================================
 function buildPersoneMultiselect(fieldPrefix, taskId){
   const myPersone = S.persone.filter(p=>p.utente_id===S.user.id)
-    .sort((a,b)=>(a.cognome||'').localeCompare(b.cognome||'')||(a.nome||'').localeCompare(b.nome||''));
+    .sort((a,b)=>(a.nome||'').localeCompare(b.nome||'')||(a.cognome||'').localeCompare(b.cognome||''));
   const selectedIds = taskId
     ? S.taskPersone.filter(tp=>tp.task_id===taskId).map(tp=>tp.persona_id)
     : [];
@@ -2665,7 +2666,7 @@ function renderPersoneDrawer(){
   if(!select||!list) return;
 
   const myPersone = S.persone.filter(p=>p.utente_id===S.user.id)
-    .sort((a,b)=>(a.cognome||'').localeCompare(b.cognome||'')||(a.nome||'').localeCompare(b.nome||''));
+    .sort((a,b)=>(a.nome||'').localeCompare(b.nome||'')||(a.cognome||'').localeCompare(b.cognome||''));
 
   // Ricostruisci la select solo se le opzioni sono cambiate (evita di perdere il focus mentre si seleziona)
   const currentVal = S.personeDrawerFilter || '';
@@ -2679,7 +2680,8 @@ function renderPersoneDrawer(){
   }
 
   const taskIds = S.taskPersone.filter(tp=>tp.persona_id===currentVal).map(tp=>tp.task_id);
-  const tasks = S.task.filter(t=>taskIds.includes(t.id) && t.stato!=='completato' && t.stato!=='annullato');
+  const tasks = S.task.filter(t=>taskIds.includes(t.id) && t.stato!=='completato' && t.stato!=='annullato')
+    .sort((a,b)=>a.nome.localeCompare(b.nome));
 
   if(!tasks.length){
     list.innerHTML = `<div style="padding:20px;text-align:center;font-size:12px;color:var(--g300);">Nessun task aperto per questa persona</div>`;
@@ -2896,8 +2898,9 @@ function onCatDragEnd(e){
 // PAGINA PERSONE
 // ============================================================
 function renderPersonePage(pb){
-  const myPersone = S.persone.filter(p=>p.utente_id===S.user.id)
-    .sort((a,b)=>(a.cognome||'').localeCompare(b.cognome||'')||(a.nome||'').localeCompare(b.nome||''));
+  const q = (S.personePageFilter || '').trim().toLowerCase();
+  let myPersone = S.persone.filter(p=>p.utente_id===S.user.id)
+    .sort((a,b)=>(a.nome||'').localeCompare(b.nome||'')||(a.cognome||'').localeCompare(b.cognome||''));
 
   pb.innerHTML=`
   <div class="pg-head">
@@ -2913,6 +2916,44 @@ function renderPersonePage(pb){
     <div class="es-icon">👤</div>
     <p>Nessuna persona in anagrafica. Aggiungine una per associarla ai task.</p>
   </div>`:`
+  <div id="filtri-bar" style="margin-bottom:20px;">
+    <div class="filtro-group">
+      <label>🔍</label>
+      <input class="filtro-input" id="persone-search" placeholder="Cerca per nome, azienda, email, tag…"
+        value="${esc(S.personePageFilter||'')}" oninput="onPersonePageFilterInput(this.value)" style="width:280px;"/>
+    </div>
+  </div>
+  <div id="persone-table-wrap"></div>`}`;
+
+  if(myPersone.length>0) renderPersoneTable();
+}
+
+function onPersonePageFilterInput(v){
+  S.personePageFilter = v;
+  renderPersoneTable();
+}
+
+function renderPersoneTable(){
+  const wrap = $('persone-table-wrap');
+  if(!wrap) return;
+  const q = (S.personePageFilter || '').trim().toLowerCase();
+
+  let myPersone = S.persone.filter(p=>p.utente_id===S.user.id)
+    .sort((a,b)=>(a.nome||'').localeCompare(b.nome||'')||(a.cognome||'').localeCompare(b.cognome||''));
+
+  if(q){
+    myPersone = myPersone.filter(p=>{
+      const haystack = `${p.nome} ${p.cognome} ${p.azienda} ${p.email} ${p.tag}`.toLowerCase();
+      return haystack.includes(q);
+    });
+  }
+
+  if(!myPersone.length){
+    wrap.innerHTML = `<div class="empty-state" style="padding:40px 0;"><p style="color:var(--g300)">Nessuna persona trovata per "${esc(S.personePageFilter)}"</p></div>`;
+    return;
+  }
+
+  wrap.innerHTML = `
   <div style="background:#fff;border-radius:var(--r);border:1px solid var(--g200);box-shadow:var(--sh-sm);overflow:hidden;">
   <table class="utenti-table">
     <thead><tr>
@@ -2937,7 +2978,7 @@ function renderPersonePage(pb){
     }).join('')}
     </tbody>
   </table>
-  </div>`}`;
+  </div>`;
 }
 
 function openPersonaModal(personaId){
