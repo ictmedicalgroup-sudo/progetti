@@ -1001,9 +1001,9 @@ async function initAppuntoMode(){
       parts.push('Progetto');
       breadcrumb = parts.join(' › ');
     }
-    titoloEl.textContent = `Appunto — ${entitaNome}`;
+    titoloEl.textContent = `[A] ${entitaNome}`;
     breadcrumbEl.textContent = breadcrumb;
-    document.title = `Appunto — ${entitaNome}`;
+    document.title = `[A] ${entitaNome}`;
 
     // Carica testo appunto esistente (HTML formattato)
     const [appunto] = await db('GET', T('appunti'), {flt:`entita_tipo=eq.${tipo}&entita_id=eq.${entitaId}`});
@@ -1137,6 +1137,8 @@ function renderBoard(pb){
       <div class="pg-sub">Gestisci categorie, progetti e task</div>
     </div>
     <div style="display:flex;gap:10px;">
+      <button class="mbtn mbtn-secondary" onclick="collapseAllAcc()" title="Comprimi tutto">⊟ Comprimi tutto</button>
+      <button class="mbtn mbtn-secondary" onclick="expandAllAcc()" title="Espandi tutto">⊞ Espandi tutto</button>
       <button class="mbtn mbtn-secondary" onclick="goPage('categorie')">Categorie</button>
       <button class="mbtn mbtn-primary" onclick="openProgettoModal()">+ Progetto</button>
     </div>
@@ -1426,6 +1428,23 @@ function buildTasksRow(tasks, proj, canWrite, nextRiga){
 function toggleAcc(key){
   S.boardExpanded[key] = S.boardExpanded[key]===false ? true : false;
   const pb=$('pb'); renderBoard(pb);
+}
+
+function collapseAllAcc(){
+  // Imposta a false tutte le chiavi di categorie, sottocategorie e progetti correntemente visibili
+  S.categorie.forEach(c=>{ S.boardExpanded['cat_'+c.id] = false; });
+  S.sottocategorie.forEach(s=>{ S.boardExpanded['sub_'+s.id] = false; });
+  S.progetti.forEach(p=>{ S.boardExpanded['proj_'+p.id] = false; });
+  S.boardExpanded['nocat'] = false;
+  renderBoard($('pb'));
+}
+
+function expandAllAcc(){
+  S.categorie.forEach(c=>{ S.boardExpanded['cat_'+c.id] = true; });
+  S.sottocategorie.forEach(s=>{ S.boardExpanded['sub_'+s.id] = true; });
+  S.progetti.forEach(p=>{ S.boardExpanded['proj_'+p.id] = true; });
+  S.boardExpanded['nocat'] = true;
+  renderBoard($('pb'));
 }
 
 // ============================================================
