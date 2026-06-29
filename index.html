@@ -2690,11 +2690,14 @@ function renderPersoneDrawer(){
 
   list.innerHTML = tasks.map(t=>{
     const proj = S.progetti.find(p=>p.id===t.progetto_id);
+    const cat = proj?.categoria_id ? S.categorie.find(c=>c.id===proj.categoria_id) : null;
+    const sub = proj?.sottocategoria_id ? S.sottocategorie.find(s=>s.id===proj.sottocategoria_id) : null;
+    const breadcrumb = [cat?.nome, sub?.nome, proj?.nome].filter(Boolean).join(' | ');
     return `<div class="pd-item" onclick="openTaskDetail('${t.id}')" title="Apri nel board">
       <span class="pd-stato-dot" style="background:${statiColor[t.stato]||'var(--g300)'}"></span>
       <div style="flex:1;">
         <div class="pd-text">${esc(t.nome)}</div>
-        ${proj?`<div class="pd-meta">${esc(proj.nome)}</div>`:''}
+        ${breadcrumb?`<div class="pd-meta">${esc(breadcrumb)}</div>`:''}
       </div>
     </div>`;
   }).join('');
