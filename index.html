@@ -312,6 +312,25 @@ body{background:var(--g50);color:var(--g900);}
 .ms-clear{padding:8px 14px;border-top:1px solid var(--g100);font-size:12px;color:var(--g500);
   cursor:pointer;text-align:center;}
 .ms-clear:hover{color:var(--red);}
+
+/* Tag-input selezione persone */
+.pt-wrap{display:flex;flex-direction:column;gap:8px;}
+.pt-tags{display:flex;flex-wrap:wrap;gap:6px;min-height:24px;}
+.pt-tag{display:inline-flex;align-items:center;gap:6px;padding:4px 8px 4px 10px;border-radius:20px;
+  border:1.5px solid;font-size:12px;font-weight:600;white-space:nowrap;}
+.pt-tag-remove{cursor:pointer;font-size:14px;line-height:1;opacity:.6;padding:0 2px;}
+.pt-tag-remove:hover{opacity:1;}
+.pt-search{width:100%;padding:9px 12px;border:1px solid var(--g200);border-radius:var(--rsm);
+  font-family:'Raleway',sans-serif;font-size:13px;color:var(--g900);outline:none;transition:border-color .2s;background:#fff;}
+.pt-search:focus{border-color:var(--verde);}
+.pt-results{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:500;
+  background:#fff;border:1px solid var(--g200);border-radius:var(--r);
+  box-shadow:var(--sh-lg);max-height:220px;overflow-y:auto;display:none;}
+.pt-results.open{display:block;}
+.pt-result-item{display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;font-size:13px;color:var(--g700);}
+.pt-result-item:hover{background:var(--g50);}
+.pt-result-empty{padding:10px 14px;font-size:12px;color:var(--g300);text-align:center;}
+
 /* Freccia dipendenza tra task */
 .task-dep-arrow{color:var(--g300);font-size:14px;flex-shrink:0;}
 
@@ -1876,29 +1895,108 @@ function buildPersoneMultiselect(fieldPrefix, taskId){
     return `<div style="font-size:12px;color:var(--g300);">Nessuna persona in anagrafica. <a href="javascript:void(0)" onclick="goPage('persone')" style="color:var(--verde);">Aggiungine una</a></div>`;
   }
 
-  const ddId = `${fieldPrefix}-dd`;
-  const triggerId = `${fieldPrefix}-trigger`;
-  const listId = `${fieldPrefix}-list`;
+  const tagsId = `${fieldPrefix}-tags`;
+  const searchId = `${fieldPrefix}-search`;
+  const resultsId = `${fieldPrefix}-results`;
 
   return `
-  <div class="ms-wrap" id="${fieldPrefix}-wrap" data-field="${fieldPrefix}">
-    <div class="ms-trigger" id="${triggerId}" onclick="toggleMsGeneric(event,'${ddId}')">
-      ${selectedIds.length===0?'Nessuna persona':selectedIds.length+' selezionat'+(selectedIds.length===1?'a':'e')}
-    </div>
-    <div class="ms-dropdown" id="${ddId}">
-      <div class="ms-search"><input type="text" placeholder="Cerca persona…" oninput="filterMsGeneric('${listId}',this.value)" onclick="event.stopPropagation()"/></div>
-      <div class="ms-list" id="${listId}">
-        ${myPersone.map(p=>`
-        <label class="ms-item">
-          <input type="checkbox" value="${p.id}" ${selectedIds.includes(p.id)?'checked':''} onclick="event.stopPropagation()" onchange="onMsPersoneChange('${fieldPrefix}')"/>
-          <span style="width:10px;height:10px;border-radius:50%;background:${esc(p.colore_tag)};flex-shrink:0;display:inline-block;"></span>
-          ${esc(p.nome)} ${esc(p.cognome)}${p.tag?` <span style="color:var(--g300);font-size:11px;">· ${esc(p.tag)}</span>`:''}
-        </label>`).join('')}
-      </div>
-      <div class="ms-clear" onclick="clearMsGeneric('${fieldPrefix}')">Deseleziona tutto</div>
+  <div class="pt-wrap" id="${fieldPrefix}-wrap" data-field="${fieldPrefix}" data-selected='${JSON.stringify(selectedIds)}'>
+    <div class="pt-tags" id="${tagsId}">${renderPersonaTags(fieldPrefix, selectedIds)}</div>
+    <div style="position:relative;">
+      <input type="text" class="pt-search" id="${searchId}" placeholder="Cerca persona da aggiungere…"
+        oninput="onPersonaSearchInput('${fieldPrefix}',this.value)"
+        onfocus="onPersonaSearchInput('${fieldPrefix}',this.value)"
+        autocomplete="off"/>
+      <div class="pt-results" id="${resultsId}"></div>
     </div>
   </div>`;
 }
+
+function renderPersonaTags(fieldPrefix, selectedIds){
+  if(!selectedIds.length) return `<span style="font-size:12px;color:var(--g300);">Nessuna persona selezionata</span>`;
+  return selectedIds.map(id=>{
+    const p = S.persone.find(x=>x.id===id);
+    if(!p) return '';
+    return `<span class="pt-tag" style="background:${esc(p.colore_tag)}1A;border-color:${esc(p.colore_tag)};color:${esc(p.colore_tag)};">
+      ${esc(p.nome)} ${esc(p.cognome)}
+      <span class="pt-tag-remove" onclick="removePersonaTag('${fieldPrefix}','${id}')">×</span>
+    </span>`;
+  }).join('');
+}
+
+function onPersonaSearchInput(fieldPrefix, query){
+  const wrap = document.getElementById(`${fieldPrefix}-wrap`);
+  const results = document.getElementById(`${fieldPrefix}-results`);
+  if(!wrap || !results) return;
+
+  const selectedIds = JSON.parse(wrap.dataset.selected || '[]');
+  const q = (query||'').trim().toLowerCase();
+
+  const myPersone = S.persone.filter(p=>p.utente_id===S.user.id && !selectedIds.includes(p.id))
+    .filter(p=>{
+      if(!q) return true;
+      const full = `${p.nome} ${p.cognome} ${p.azienda} ${p.tag}`.toLowerCase();
+      return full.includes(q);
+    })
+    .sort((a,b)=>(a.cognome||'').localeCompare(b.cognome||'')||(a.nome||'').localeCompare(b.nome||''))
+    .slice(0, 8);
+
+  if(!myPersone.length){
+    results.innerHTML = q
+      ? `<div class="pt-result-empty">Nessun risultato</div>`
+      : '';
+    results.classList.toggle('open', !!q);
+    return;
+  }
+
+  results.innerHTML = myPersone.map(p=>`
+    <div class="pt-result-item" onclick="addPersonaTag('${fieldPrefix}','${p.id}')">
+      <span style="width:9px;height:9px;border-radius:50%;background:${esc(p.colore_tag)};flex-shrink:0;display:inline-block;"></span>
+      <span style="flex:1;">${esc(p.nome)} ${esc(p.cognome)}</span>
+      ${p.tag?`<span style="font-size:10px;color:var(--g300);">${esc(p.tag)}</span>`:''}
+    </div>`).join('');
+  results.classList.add('open');
+}
+
+function addPersonaTag(fieldPrefix, personaId){
+  const wrap = document.getElementById(`${fieldPrefix}-wrap`);
+  const tagsEl = document.getElementById(`${fieldPrefix}-tags`);
+  const searchEl = document.getElementById(`${fieldPrefix}-search`);
+  const resultsEl = document.getElementById(`${fieldPrefix}-results`);
+  if(!wrap || !tagsEl) return;
+
+  const selectedIds = JSON.parse(wrap.dataset.selected || '[]');
+  if(!selectedIds.includes(personaId)) selectedIds.push(personaId);
+  wrap.dataset.selected = JSON.stringify(selectedIds);
+
+  tagsEl.innerHTML = renderPersonaTags(fieldPrefix, selectedIds);
+  if(searchEl){ searchEl.value=''; searchEl.focus(); }
+  if(resultsEl){ resultsEl.innerHTML=''; resultsEl.classList.remove('open'); }
+}
+
+function removePersonaTag(fieldPrefix, personaId){
+  const wrap = document.getElementById(`${fieldPrefix}-wrap`);
+  const tagsEl = document.getElementById(`${fieldPrefix}-tags`);
+  if(!wrap || !tagsEl) return;
+
+  let selectedIds = JSON.parse(wrap.dataset.selected || '[]');
+  selectedIds = selectedIds.filter(id=>id!==personaId);
+  wrap.dataset.selected = JSON.stringify(selectedIds);
+  tagsEl.innerHTML = renderPersonaTags(fieldPrefix, selectedIds);
+}
+
+function getMsSelectedIds(fieldPrefix){
+  const wrap = document.getElementById(`${fieldPrefix}-wrap`);
+  if(!wrap) return [];
+  try { return JSON.parse(wrap.dataset.selected || '[]'); } catch(e){ return []; }
+}
+
+// Chiudi i risultati di ricerca persone al click fuori
+document.addEventListener('click', e=>{
+  document.querySelectorAll('.pt-results.open').forEach(r=>{
+    if(!r.parentElement?.contains(e.target)) { r.classList.remove('open'); r.innerHTML=''; }
+  });
+});
 
 function buildPersoneReadonly(taskId){
   const ids = S.taskPersone.filter(tp=>tp.task_id===taskId).map(tp=>tp.persona_id);
@@ -1910,42 +2008,6 @@ function buildPersoneReadonly(taskId){
   if(!nomi.length) return '';
   return `<div style="margin-top:8px;"><b>Persone:</b> ${nomi.join(', ')}</div>`;
 }
-
-// Generic multiselect toggle/filter (riusabile per persone e altri campi futuri)
-function toggleMsGeneric(e, ddId){
-  e.stopPropagation();
-  document.querySelectorAll('.ms-dropdown.open').forEach(dd=>{ if(dd.id!==ddId) dd.classList.remove('open'); });
-  const dd=document.getElementById(ddId); if(dd) dd.classList.toggle('open');
-}
-function filterMsGeneric(listId, q){
-  const list=document.getElementById(listId); if(!list) return;
-  list.querySelectorAll('.ms-item').forEach(item=>{
-    item.style.display = item.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
-  });
-}
-function onMsPersoneChange(fieldPrefix){
-  const trigger=document.getElementById(`${fieldPrefix}-trigger`);
-  const list=document.getElementById(`${fieldPrefix}-list`);
-  if(!trigger||!list) return;
-  const checked=[...list.querySelectorAll('input[type=checkbox]')].filter(c=>c.checked);
-  trigger.innerHTML = checked.length===0?'Nessuna persona':checked.length+' selezionat'+(checked.length===1?'a':'e')+' <span style="font-size:10px;color:var(--g500);">▾</span>';
-}
-function clearMsGeneric(fieldPrefix){
-  const list=document.getElementById(`${fieldPrefix}-list`);
-  if(list) list.querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=false);
-  onMsPersoneChange(fieldPrefix);
-}
-function getMsSelectedIds(fieldPrefix){
-  const list=document.getElementById(`${fieldPrefix}-list`);
-  if(!list) return [];
-  return [...list.querySelectorAll('input[type=checkbox]:checked')].map(c=>c.value);
-}
-// Chiudi dropdown generici al click fuori
-document.addEventListener('click', e=>{
-  document.querySelectorAll('.ms-dropdown.open').forEach(dd=>{
-    if(!dd.parentElement?.contains(e.target)) dd.classList.remove('open');
-  });
-});
 
 async function syncTaskPersone(taskId, selectedIds){
   const current = S.taskPersone.filter(tp=>tp.task_id===taskId).map(tp=>tp.persona_id);
