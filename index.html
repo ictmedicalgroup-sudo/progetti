@@ -317,6 +317,22 @@ body.is-dragging .new-row-hint{color:var(--verde);}
 }
 .add-task-btn:hover{border-color:var(--verde);color:var(--verde);background:var(--accent-light);}
 
+/* Pulsante appunto "A" */
+.appunto-btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:24px;height:24px;border-radius:50%;flex-shrink:0;
+  font-size:11px;font-weight:700;cursor:pointer;transition:all .17s;
+  font-family:'Raleway',sans-serif;
+}
+.appunto-btn.empty{
+  border:1.5px dashed var(--g200);background:none;color:var(--g300);
+}
+.appunto-btn.empty:hover{border-color:var(--verde);color:var(--verde);background:var(--accent-light);}
+.appunto-btn.filled{
+  border:1.5px solid var(--verde);background:var(--verde);color:#fff;
+}
+.appunto-btn.filled:hover{opacity:.85;}
+
 /* Cella task per righe categoria/sottocategoria (vuota ma con sfondo) */
 .tasks-cell-cat{background:var(--g100);border-bottom:1px solid var(--g200);}
 .tasks-cell-sub{background:var(--g50);border-bottom:1px solid var(--g100);}
@@ -563,6 +579,7 @@ const S = {
   ctxTask: null,     // task corrente nel context menu
   drawerOpen: false,
   drawerDate: null,
+  appuntiPresenza: {}, // { 'categoria:ID': true/false } — cache leggera per indicare presenza testo
 };
 
 // ============================================================
@@ -656,7 +673,7 @@ async function writeLog(azione, entita, entitaId, dettaglio={}){
 // LOAD ALL
 // ============================================================
 async function loadAll(){
-  const [profili,categorie,sottocategorie,progetti,permessi,task,dipendenze,taskVeloci] = await Promise.all([
+  const [profili,categorie,sottocategorie,progetti,permessi,task,dipendenze,taskVeloci,appunti] = await Promise.all([
     db('GET', T('profili'),        {ord:'cognome.asc,nome.asc'}),
     db('GET', T('categorie'),      {ord:'ordine.asc,nome.asc'}),
     db('GET', T('sottocategorie'), {ord:'ordine.asc,nome.asc'}),
@@ -665,11 +682,17 @@ async function loadAll(){
     db('GET', T('task'),           {ord:'riga.asc,posizione.asc'}),
     db('GET', T('task_dipendenze'),{}),
     db('GET', T('task_veloci'),    {flt:`data_riferimento=eq.${today()}`,ord:'ordine.asc'}),
+    db('GET', T('appunti'),        {sel:'entita_tipo,entita_id,testo'}),
   ]);
   S.profili=profili||[]; S.categorie=categorie||[];
   S.sottocategorie=sottocategorie||[]; S.progetti=progetti||[];
   S.permessi=permessi||[]; S.task=task||[];
   S.dipendenze=dipendenze||[]; S.taskVeloci=taskVeloci||[];
+  // Cache leggera: solo presenza/assenza testo, non il contenuto completo
+  S.appuntiPresenza = {};
+  (appunti||[]).forEach(a=>{
+    S.appuntiPresenza[`${a.entita_tipo}:${a.entita_id}`] = !!(a.testo && a.testo.trim());
+  });
 }
 
 async function loadLog(da, a, testo){
@@ -805,6 +828,176 @@ function canWriteProgetto(proj){
   return S.permessi.some(p=>p.progetto_id===proj.id&&p.utente_id===S.user.id&&p.livello==='write');
 }
 function isOwner(proj){ return proj.utente_id===S.user.id||S.user.ruolo==='admin'; }
+
+// ============================================================
+// APPUNTI (categoria/sottocategoria/progetto)
+// ============================================================
+function appuntoClass(tipo, entitaId){
+  return S.appuntiPresenza[`${tipo}:${entitaId}`] ? 'filled' : 'empty';
+}
+
+function openAppunto(tipo, entitaId){
+  // Apre una nuova scheda sullo stesso file, passando i parametri via hash
+  // (location.hash non viene mai inviato al server né loggato)
+  const params = new URLSearchParams({
+    appunto: tipo,
+    id: entitaId,
+    tk: S.token,
+    nome: `${S.user.nome} ${S.user.cognome}`,
+    uid: S.user.id,
+    ruolo: S.user.ruolo,
+  });
+  const url = location.pathname + '#appunto=' + btoa(params.toString());
+  window.open(url, '_blank');
+}
+
+// ============================================================
+// MODALITÀ APPUNTO (scheda standalone tipo notepad)
+// ============================================================
+async function initAppuntoMode(){
+  let parsed;
+  try {
+    const raw = atob(location.hash.replace('#appunto=',''));
+    parsed = new URLSearchParams(raw);
+  } catch(e){
+    document.body.innerHTML = '<div style="padding:40px;font-family:Raleway,sans-serif;color:#C0392B;">Link appunto non valido.</div>';
+    return;
+  }
+  const tipo = parsed.get('appunto');
+  const entitaId = parsed.get('id');
+  const token = parsed.get('tk');
+  const nomeUtente = parsed.get('nome') || '—';
+  const userId = parsed.get('uid');
+  const ruolo = parsed.get('ruolo');
+
+  // Stato minimo per le chiamate db()
+  S.token = token;
+  S.user = { id: userId, nome: nomeUtente.split(' ')[0]||'', cognome: nomeUtente.split(' ').slice(1).join(' ')||'', ruolo };
+
+  // Sostituisci l'intero body con l'editor
+  document.body.innerHTML = `
+    <div id="appunto-app" style="display:flex;flex-direction:column;height:100vh;font-family:'Raleway',sans-serif;background:var(--g50,#F8F9F8);">
+      <div id="appunto-topbar" style="background:#fff;border-bottom:1px solid #E2E6DF;padding:14px 24px;
+           display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 3px rgba(74,76,77,.08);">
+        <div>
+          <div id="appunto-titolo" style="font-size:15px;font-weight:700;color:#2A2C2D;">Caricamento…</div>
+          <div id="appunto-breadcrumb" style="font-size:11px;color:#77797A;margin-top:2px;"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;">
+          <span id="appunto-status" style="font-size:11px;color:#9DBF60;font-weight:600;"></span>
+          <button onclick="window.close()" style="background:none;border:1px solid #E2E6DF;border-radius:6px;
+            padding:6px 14px;font-family:'Raleway',sans-serif;font-size:12px;font-weight:600;color:#77797A;cursor:pointer;">
+            Chiudi scheda
+          </button>
+        </div>
+      </div>
+      <textarea id="appunto-editor" placeholder="Scrivi qui i tuoi appunti…" 
+        style="flex:1;border:none;outline:none;resize:none;padding:28px 36px;font-size:15px;line-height:1.6;
+               font-family:'Raleway',sans-serif;color:#2A2C2D;background:#fff;"></textarea>
+    </div>`;
+
+  const editor = document.getElementById('appunto-editor');
+  const statusEl = document.getElementById('appunto-status');
+  const titoloEl = document.getElementById('appunto-titolo');
+  const breadcrumbEl = document.getElementById('appunto-breadcrumb');
+
+  // Carica dati entità collegata (per titolo/breadcrumb) + appunto esistente
+  try {
+    let entitaNome = '—', breadcrumb = '';
+    if(tipo === 'categoria'){
+      const [cat] = await db('GET', T('categorie'), {flt:`id=eq.${entitaId}`});
+      entitaNome = cat?.nome || '—';
+      breadcrumb = 'Categoria';
+    } else if(tipo === 'sottocategoria'){
+      const [sub] = await db('GET', T('sottocategorie'), {flt:`id=eq.${entitaId}`});
+      entitaNome = sub?.nome || '—';
+      if(sub?.categoria_id){
+        const [cat] = await db('GET', T('categorie'), {flt:`id=eq.${sub.categoria_id}`});
+        breadcrumb = `${cat?.nome||''} › Sottocategoria`;
+      } else breadcrumb = 'Sottocategoria';
+    } else if(tipo === 'progetto'){
+      const [proj] = await db('GET', T('progetti'), {flt:`id=eq.${entitaId}`});
+      entitaNome = proj?.nome || '—';
+      const parts = [];
+      if(proj?.categoria_id){
+        const [cat] = await db('GET', T('categorie'), {flt:`id=eq.${proj.categoria_id}`});
+        if(cat) parts.push(cat.nome);
+      }
+      if(proj?.sottocategoria_id){
+        const [sub] = await db('GET', T('sottocategorie'), {flt:`id=eq.${proj.sottocategoria_id}`});
+        if(sub) parts.push(sub.nome);
+      }
+      parts.push('Progetto');
+      breadcrumb = parts.join(' › ');
+    }
+    titoloEl.textContent = `Appunto — ${entitaNome}`;
+    breadcrumbEl.textContent = breadcrumb;
+    document.title = `Appunto — ${entitaNome}`;
+
+    // Carica testo appunto esistente
+    const [appunto] = await db('GET', T('appunti'), {flt:`entita_tipo=eq.${tipo}&entita_id=eq.${entitaId}`});
+    editor.value = appunto?.testo || '';
+    statusEl.textContent = appunto ? `Salvato` : '';
+  } catch(e){
+    titoloEl.textContent = 'Errore di caricamento';
+    statusEl.textContent = '';
+    statusEl.style.color = '#C0392B';
+  }
+
+  editor.focus();
+
+  // Salvataggio automatico con debounce
+  let saveTimer = null;
+  let saving = false;
+  async function saveAppunto(){
+    if(saving) return;
+    saving = true;
+    statusEl.style.color = '#E8A838';
+    statusEl.textContent = 'Salvataggio…';
+    try {
+      const testo = editor.value;
+      const existing = await db('GET', T('appunti'), {flt:`entita_tipo=eq.${tipo}&entita_id=eq.${entitaId}`});
+      if(existing && existing.length){
+        await db('PATCH', T('appunti'), {
+          flt:`entita_tipo=eq.${tipo}&entita_id=eq.${entitaId}`,
+          body:{ testo, updated_by:userId }
+        });
+      } else {
+        await db('POST', T('appunti'), {
+          body:{ entita_tipo:tipo, entita_id:entitaId, testo, updated_by:userId }
+        });
+      }
+      statusEl.style.color = '#9DBF60';
+      const now = new Date();
+      statusEl.textContent = `Salvato alle ${now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
+    } catch(e){
+      statusEl.style.color = '#C0392B';
+      statusEl.textContent = 'Errore di salvataggio';
+    } finally {
+      saving = false;
+    }
+  }
+
+  editor.addEventListener('input', ()=>{
+    statusEl.style.color = '#77797A';
+    statusEl.textContent = 'Modifica in corso…';
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveAppunto, 1000);
+  });
+
+  // Notifica le altre schede (board) che lo stato pieno/vuoto è cambiato
+  const bc = ('BroadcastChannel' in window) ? new BroadcastChannel('progetti-appunti') : null;
+  const origSave = saveAppunto;
+  saveAppunto = async function(){
+    await origSave();
+    if(bc) bc.postMessage({ tipo, entitaId, hasText: editor.value.trim().length > 0 });
+  };
+
+  // Salva anche alla chiusura della scheda (best effort)
+  window.addEventListener('beforeunload', ()=>{
+    if(saveTimer) { clearTimeout(saveTimer); saveAppunto(); }
+  });
+}
 
 // ============================================================
 // RENDER BOARD
@@ -952,6 +1145,7 @@ function renderBoardRows(cats, progettiSenzaCat, allProjFiltered, taskVisibili){
         <div class="cat-label">
           <span class="cat-dot" style="background:${esc(cat.colore)}"></span>
           <span style="flex:1">${catLabel}</span>
+          <button class="appunto-btn ${appuntoClass('categoria',cat.id)}" title="Appunto categoria" onclick="event.stopPropagation();openAppunto('categoria','${cat.id}')">A</button>
           <button class="add-task-btn" style="font-size:13px;width:24px;height:24px;" title="Nuova sottocategoria" onclick="event.stopPropagation();openSubcatModal('${cat.id}')">+</button>
           <span class="acc-chevron ${isExpCat?'open':''}">▶</span>
         </div>
@@ -968,6 +1162,7 @@ function renderBoardRows(cats, progettiSenzaCat, allProjFiltered, taskVisibili){
           <td class="col-label">
             <div class="sub-label">
               <span style="flex:1">${esc(sub.nome)}</span>
+              <button class="appunto-btn ${appuntoClass('sottocategoria',sub.id)}" title="Appunto sottocategoria" onclick="event.stopPropagation();openAppunto('sottocategoria','${sub.id}')">A</button>
               <button class="add-task-btn" style="font-size:13px;width:24px;height:24px;" title="Nuovo progetto in questa sottocategoria" onclick="event.stopPropagation();openProgettoModal(null,'${cat.id}','${sub.id}')">+</button>
               <span class="acc-chevron ${isExpSub?'open':''}">▶</span>
             </div>
@@ -1080,6 +1275,7 @@ function buildProgettoRow(proj, indent, taskVisibili){
           <span style="color:var(--g200);font-size:10px;">|</span>
           <button class="act-btn" style="font-size:10px;padding:1px 6px;" onclick="event.stopPropagation();openProgettoModal('${proj.id}')" title="Modifica progetto">Modifica</button>
           <button class="act-btn" style="font-size:10px;padding:1px 6px;" onclick="event.stopPropagation();openPermessiModal('${proj.id}')" title="Permessi">Permessi</button>
+          <button class="appunto-btn ${appuntoClass('progetto',proj.id)}" style="width:20px;height:20px;font-size:10px;" title="Appunto progetto" onclick="event.stopPropagation();openAppunto('progetto','${proj.id}')">A</button>
         </div>
       </div>
       ${canWrite?`<button class="add-task-btn" onclick="event.stopPropagation();openTaskModalNewRow('${proj.id}')" title="Nuovo task in nuova riga"
@@ -2460,6 +2656,27 @@ function resetLogFiltri(){
 // INIT
 // ============================================================
 document.addEventListener('DOMContentLoaded', async()=>{
+  // ── Modalità Appunto: se l'hash contiene #appunto=..., mostra solo l'editor ──
+  if(location.hash.startsWith('#appunto=')){
+    await initAppuntoMode();
+    return; // non inizializzare il resto dell'app
+  }
+
+  // Ascolta aggiornamenti dalle schede appunto aperte (aggiorna i pallini A senza reload)
+  if('BroadcastChannel' in window){
+    const bc = new BroadcastChannel('progetti-appunti');
+    bc.addEventListener('message', e=>{
+      const { tipo, entitaId, hasText } = e.data || {};
+      if(!tipo || !entitaId) return;
+      S.appuntiPresenza[`${tipo}:${entitaId}`] = hasText;
+      // Aggiorna solo i pulsanti A esistenti nel DOM, senza ricostruire la board
+      document.querySelectorAll(`.appunto-btn[onclick*="${entitaId}"]`).forEach(btn=>{
+        btn.classList.toggle('filled', hasText);
+        btn.classList.toggle('empty', !hasText);
+      });
+    });
+  }
+
   const tl=$('tb-logo'); if(tl) tl.innerHTML=logoHTML(true);
   const ll=$('login-logo'); if(ll) ll.innerHTML=logoHTML(false);
 
